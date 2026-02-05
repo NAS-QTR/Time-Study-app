@@ -1,0 +1,35 @@
+# Build results
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+
+# Visual Studio cache/options
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NuGet Packages
+*.nupkg
+packages/
+
+# Release packages
+Releases/
+*.zip
+
+# ONNX models (large files)
+*.onnx
+
+# Temporary files
+*.tmp
+*.bak
+
+# OS files
+Thumbs.db
+.DS_Store

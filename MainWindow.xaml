@@ -1,0 +1,740 @@
+﻿<Window x:Class="VideoTimeStudy.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:VideoTimeStudy"
+        mc:Ignorable="d"
+        Title="Video Time Study Editor" Height="850" Width="1400" Background="#2D2D30"
+        WindowState="Maximized">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="250" MinHeight="150"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Top Menu Bar -->
+        <Menu Grid.Row="0" Background="#2D2D30" Foreground="White">
+            <MenuItem Header="_File" Foreground="White">
+                <MenuItem Header="_Open Video" Click="OpenVideo_Click" Foreground="Black"/>
+                <MenuItem Header="_Append Video" Click="AppendVideo_Click" Foreground="Black"/>
+                <Separator/>
+                <MenuItem Header="_Save Project" Click="SaveProject_Click" Foreground="Black"/>
+                <MenuItem Header="_Load Project" Click="LoadProject_Click" Foreground="Black"/>
+                <Separator/>
+                <MenuItem Header="_Import Data (CSV)" Click="ImportData_Click" Foreground="Black"/>
+                <Separator/>
+                <MenuItem Header="_Export Data (CSV)" Click="ExportData_Click" Foreground="Black"/>
+                <MenuItem Header="Export to _Excel" Click="ExportToExcel_Click" Foreground="Black"/>
+                <MenuItem Header="Generate _Report (HTML)" Click="GenerateReport_Click" Foreground="Black"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="Exit_Click" Foreground="Black"/>
+            </MenuItem>
+            <MenuItem Header="_Analysis" Foreground="White">
+                <MenuItem Header="_Define Work Zone" Click="DefineZone_Click" Foreground="Black"/>
+                <MenuItem Header="_Toggle Zone Display" Click="ToggleZones_Click" Foreground="Black"/>
+                <MenuItem Header="⚙️ Configure _Zone Settings" Click="ConfigureZoneSettings_Click" Foreground="Black"/>
+                <Separator/>
+                <MenuItem Header="⚙️ Motion Detection _Settings" Click="MotionDetectionSettings_Click" Foreground="Black"/>
+                <MenuItem Header="▶ _Start Motion Tracking" Click="StartMotionTracking_Click" Foreground="Black"/>
+                <MenuItem Header="🔢 Show _Person Numbers" Click="TogglePersonNumbers_Click" Foreground="Black"/>
+                <MenuItem Header="👻 Toggle Motion Trail Overlay" Click="ToggleMotionTrail_Click" Foreground="Black"/>
+                <Separator/>
+                <MenuItem Header="💾 _Save Zones" Click="SaveZones_Click" Foreground="Black"/>
+                <MenuItem Header="📂 _Load Zones" Click="LoadZones_Click" Foreground="Black"/>
+                <Separator/>
+                <MenuItem Header="📊 Show Zone _Timeline" Click="ToggleZoneTimeline_Click" Foreground="Black"/>
+                <MenuItem Header="📊 Zone _Statistics" Click="ShowZoneStatistics_Click" Foreground="Black"/>
+                <MenuItem Header="💾 _Export Zone Data" Click="ExportZoneData_Click" Foreground="Black"/>
+                <Separator/>
+                <MenuItem Header="_Clear All Zones" Click="ClearZones_Click" Foreground="Black"/>
+            </MenuItem>
+            <MenuItem Header="_Playback" Foreground="White">
+                <MenuItem Header="Speed" IsEnabled="False" FontWeight="Bold" Foreground="Black"/>
+                <MenuItem Header="0.25x" Click="SetSpeed_Click" Tag="0.25" Foreground="Black"/>
+                <MenuItem Header="0.5x" Click="SetSpeed_Click" Tag="0.5" Foreground="Black"/>
+                <MenuItem Header="0.75x" Click="SetSpeed_Click" Tag="0.75" Foreground="Black"/>
+                <MenuItem Header="1x (Normal)" Click="SetSpeed_Click" Tag="1" Foreground="Black"/>
+                <MenuItem Header="1.25x" Click="SetSpeed_Click" Tag="1.25" Foreground="Black"/>
+                <MenuItem Header="1.5x" Click="SetSpeed_Click" Tag="1.5" Foreground="Black"/>
+                <MenuItem Header="2x" Click="SetSpeed_Click" Tag="2" Foreground="Black"/>
+                <MenuItem Header="4x" Click="SetSpeed_Click" Tag="4" Foreground="Black"/>
+                <MenuItem Header="8x" Click="SetSpeed_Click" Tag="8" Foreground="Black"/>
+                <MenuItem Header="16x" Click="SetSpeed_Click" Tag="16" Foreground="Black"/>
+                <MenuItem Header="32x" Click="SetSpeed_Click" Tag="32" Foreground="Black"/>
+                <MenuItem Header="64x" Click="SetSpeed_Click" Tag="64" Foreground="Black"/>
+            </MenuItem>
+            <MenuItem Header="_Options" Foreground="White">
+                <MenuItem Header="Edit _Elements" Click="EditElements_Click" Foreground="Black"/>
+                <MenuItem Header="⌨️ _Keyboard Shortcuts" Click="ShowKeyboardShortcuts_Click" Foreground="Black"/>
+            </MenuItem>
+        </Menu>
+        
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="750"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Left Panel - Video Player and Controls -->
+            <Grid Grid.Column="0" Background="#1E1E1E">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Video Player -->
+                <Border x:Name="VideoBorder" Grid.Row="0" BorderBrush="#3E3E42" BorderThickness="1" Background="Black" Margin="5" ClipToBounds="True">
+                    <ScrollViewer x:Name="VideoScrollViewer"
+                                  ClipToBounds="True"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  PreviewMouseWheel="VideoContainer_PreviewMouseWheel"
+                                  PreviewMouseLeftButtonDown="VideoScrollViewer_PreviewMouseLeftButtonDown"
+                                  PreviewMouseLeftButtonUp="VideoScrollViewer_PreviewMouseLeftButtonUp"
+                                  PreviewMouseMove="VideoScrollViewer_PreviewMouseMove">
+                        <Grid x:Name="VideoContainer" Width="3648" Height="2052" ClipToBounds="True"
+                              MouseDown="ZoneCanvas_MouseDown" 
+                              MouseMove="ZoneCanvas_MouseMove" 
+                              MouseUp="ZoneCanvas_MouseUp">
+                            <Grid.LayoutTransform>
+                                <ScaleTransform x:Name="VideoScaleTransform" ScaleX="1" ScaleY="1"/>
+                            </Grid.LayoutTransform>
+                            <MediaElement x:Name="VideoPlayer"
+                                          Width="3648" Height="2052"
+                                          LoadedBehavior="Manual"
+                                          UnloadedBehavior="Stop"
+                                          ScrubbingEnabled="True"
+                                          Stretch="Uniform"
+                                          MediaFailed="VideoPlayer_MediaFailed"/>
+                            <Canvas x:Name="MotionTrailCanvas" Width="3648" Height="2052" Background="Transparent" IsHitTestVisible="False"/>
+                            <Canvas x:Name="MarkerCanvas" Width="3648" Height="2052" Background="Transparent" IsHitTestVisible="False"/>
+                            <Canvas x:Name="ZoneCanvas" Width="3648" Height="2052" Background="Transparent" IsHitTestVisible="True"/>
+                        </Grid>
+                    </ScrollViewer>
+                </Border>
+                
+                <!-- Playback Controls Bar -->
+                <Border Grid.Row="1" Background="#252526" Padding="10,5">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Left: Play Controls -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="PlayButton" Content="▶" Width="40" Height="35" Margin="2" 
+                                    Click="Play_Click" Background="#0E639C" Foreground="White" FontSize="16" FontWeight="Bold"
+                                    ToolTip="Play (Space)"/>
+                            <Button x:Name="PauseButton" Content="⏸" Width="40" Height="35" Margin="2" 
+                                    Click="Pause_Click" Background="#3E3E42" Foreground="White" FontSize="16"
+                                    ToolTip="Pause (Space)"/>
+                            <Button x:Name="StopButton" Content="⏹" Width="40" Height="35" Margin="2" 
+                                    Click="Stop_Click" Background="#3E3E42" Foreground="White" FontSize="16"
+                                    ToolTip="Stop"/>
+                            
+                            <Separator Margin="5,0" Background="Transparent" Width="1"/>
+                            
+                            <!-- Frame Step Controls -->
+                            <Button x:Name="PrevFrameButton" Content="◀|" Width="45" Height="35" Margin="2" 
+                                    Click="PrevFrame_Click" Background="#3E3E42" Foreground="White" FontSize="12" FontWeight="Bold"
+                                    ToolTip="Previous Frame (,)"/>
+                            <Button x:Name="NextFrameButton" Content="|▶" Width="45" Height="35" Margin="2" 
+                                    Click="NextFrame_Click" Background="#3E3E42" Foreground="White" FontSize="12" FontWeight="Bold"
+                                    ToolTip="Next Frame (.)"/>
+                            
+                            <Separator Margin="5,0" Background="Transparent" Width="1"/>
+                            
+                            <Button x:Name="Rewind10Button" Content="⏪ 10s" Width="60" Height="35" Margin="2" 
+                                    Click="Rewind10_Click" Background="#3E3E42" Foreground="White" FontSize="11" FontWeight="Bold"
+                                    ToolTip="Rewind 10 seconds (A)"/>
+                            <Button x:Name="Forward10Button" Content="10s ⏩" Width="60" Height="35" Margin="2" 
+                                    Click="Forward10_Click" Background="#3E3E42" Foreground="White" FontSize="11" FontWeight="Bold"
+                                    ToolTip="Fast forward 10 seconds (D)"/>
+                            
+                            <StackPanel Orientation="Vertical" Margin="15,0,0,0">
+                                <TextBlock x:Name="CurrentTime" Text="00:00:00.00" 
+                                           Foreground="White" FontFamily="Consolas" FontSize="12" TextAlignment="Center"/>
+                                <TextBlock x:Name="FrameCounter" Text="Frame: 0" 
+                                           Foreground="#AAAAAA" FontFamily="Consolas" FontSize="9" TextAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                        
+                        <!-- Center: Element Library and Add Marker -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="Element:" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13" FontWeight="SemiBold"/>
+                            <ComboBox x:Name="ElementLibraryComboBox" Width="80" Height="32" 
+                                      Background="#2D2D30" Foreground="#CCCCCC" BorderBrush="#007ACC" IsEditable="True" FontSize="12">
+                                <ComboBox.Resources>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2D2D30"/>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#007ACC"/>
+                                    <Style TargetType="{x:Type ComboBoxItem}">
+                                        <Setter Property="Foreground" Value="Black"/>
+                                        <Setter Property="Background" Value="White"/>
+                                        <Setter Property="FontSize" Value="12"/>
+                                    </Style>
+                                    <Style TargetType="{x:Type TextBox}">
+                                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                                        <Setter Property="FontSize" Value="12"/>
+                                    </Style>
+                                </ComboBox.Resources>
+                            </ComboBox>
+                            <Button Content="➕ Mark" Click="AddTimestamp_Click" 
+                                    Width="80" Height="35" Margin="10,0,0,0"
+                                    Background="#0E639C" Foreground="White" FontWeight="Bold"
+                                    ToolTip="Add Timestamp (Ctrl+M)"/>
+                            <Button Content="S" Click="StartElement_Click" 
+                                    Width="30" Height="35" Margin="5,0,0,0"
+                                    Background="#2E7D32" Foreground="White" FontWeight="Bold"
+                                    ToolTip="Start Element (S)"/>
+                            <Button Content="E" Click="EndElement_Click" 
+                                    Width="30" Height="35" Margin="2,0,0,0"
+                                    Background="#D32F2F" Foreground="White" FontWeight="Bold"
+                                    ToolTip="End Element (E)"/>
+                        </StackPanel>
+                        
+                        <!-- Right: Speed and Zoom -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="SpeedRatioText" Text="Speed: 1.0x" Foreground="#4EC9B0" VerticalAlignment="Center" 
+                                       Margin="5,0" FontWeight="Bold" FontFamily="Consolas" FontSize="12"
+                                       ToolTip="Use Up/Down arrows or +/- to change speed"/>
+                            <ComboBox x:Name="SpeedComboBox" Width="70" SelectedIndex="3" 
+                                      SelectionChanged="SpeedComboBox_SelectionChanged" Background="#3E3E42" 
+                                      BorderBrush="#007ACC">
+                                <ComboBox.Resources>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#3E3E42"/>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#007ACC"/>
+                                    <Style TargetType="{x:Type ComboBoxItem}">
+                                        <Setter Property="Foreground" Value="Black"/>
+                                        <Setter Property="Background" Value="White"/>
+                                    </Style>
+                                    <Style TargetType="{x:Type TextBlock}">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Style>
+                                </ComboBox.Resources>
+                                <ComboBoxItem Content="0.25x" Tag="0.25"/>
+                                <ComboBoxItem Content="0.5x" Tag="0.5"/>
+                                <ComboBoxItem Content="0.75x" Tag="0.75"/>
+                                <ComboBoxItem Content="1x" Tag="1"/>
+                                <ComboBoxItem Content="1.25x" Tag="1.25"/>
+                                <ComboBoxItem Content="1.5x" Tag="1.5"/>
+                                <ComboBoxItem Content="2x" Tag="2"/>
+                                <ComboBoxItem Content="4x" Tag="4"/>
+                                <ComboBoxItem Content="8x" Tag="8"/>
+                                <ComboBoxItem Content="16x" Tag="16"/>
+                                <ComboBoxItem Content="32x" Tag="32"/>
+                                <ComboBoxItem Content="64x" Tag="64"/>
+                            </ComboBox>
+                            
+                            <TextBlock Text="Zoom:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                            <Button Content="-" Width="30" Height="30" Click="ZoomOut_Click" 
+                                    Background="#3E3E42" Foreground="White" FontWeight="Bold" Margin="2"/>
+                            <TextBlock x:Name="ZoomLabel" Text="100%" Foreground="White" VerticalAlignment="Center" 
+                                       Width="45" TextAlignment="Center" FontFamily="Consolas" FontSize="11"/>
+                            <Button Content="+" Width="30" Height="30" Click="ZoomIn_Click" 
+                                    Background="#3E3E42" Foreground="White" FontWeight="Bold" Margin="2"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                
+                <!-- Zone Occupancy Timeline -->
+                <Border x:Name="ZoneTimelinePanel" Grid.Row="2" Background="#1E1E1E" 
+                        BorderBrush="#3E3E42" BorderThickness="0,1,0,0" Padding="10,5" 
+                        Visibility="Collapsed" MaxHeight="150">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
+                            <TextBlock Text="📍 Zone Occupancy Timeline" FontSize="11" FontWeight="Bold" 
+                                       Foreground="#2E7D32" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <Canvas x:Name="ZoneTimelineCanvas" Grid.Row="1" Height="100" Background="#2D2D30" ClipToBounds="True"/>
+                    </Grid>
+                </Border>
+            </Grid>
+            
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#3E3E42"/>
+            
+            <!-- Right Panel - Data Grid and Description -->
+            <Grid Grid.Column="2" Background="#1E1E1E">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <Border Grid.Row="0" Background="#252526" Padding="10" Margin="0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="📊 Time Study Data" FontSize="14" FontWeight="Bold" 
+                                   Foreground="White" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                            <Button Content="🎯 Zone Log" Click="ToggleZoneLog_Click" 
+                                    Width="90" Height="28" Margin="5,0" 
+                                    Background="#2E7D32" Foreground="White" FontSize="11"
+                                    ToolTip="Show zone entry/exit log"/>
+                            <Button Content="📊 Statistics" Click="ShowStatistics_Click" 
+                                    Width="90" Height="28" Margin="5,0" 
+                                    Background="#0E639C" Foreground="White" FontSize="11"
+                                    ToolTip="Show statistics panel"/>
+                            <ToggleButton x:Name="TimeFormatToggle" Content="⏱ Decimal" 
+                                          Click="ToggleTimeFormat_Click"
+                                          Width="80" Height="28" 
+                                          Background="#3E3E42" Foreground="White" FontSize="11"
+                                          ToolTip="Toggle between HH:MM:SS and decimal hours"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                
+                <!-- Zone Event Log Panel -->
+                <Border Grid.Row="1" x:Name="ZoneLogPanel" Background="#1E1E1E" 
+                        BorderBrush="#2E7D32" BorderThickness="1" Margin="5" Padding="10" 
+                        Visibility="Collapsed" MaxHeight="200">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBlock Text="🎯 Zone Entry/Exit Log" FontSize="12" FontWeight="Bold" 
+                                       Foreground="#2E7D32" VerticalAlignment="Center"/>
+                            <Button Content="Clear Log" Click="ClearZoneLog_Click" 
+                                    Width="80" Height="22" Margin="10,0,0,0"
+                                    Background="#D32F2F" Foreground="White" FontSize="10"/>
+                        </StackPanel>
+                        <ScrollViewer x:Name="ZoneLogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="150">
+                            <ItemsControl x:Name="ZoneEventList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Padding="5,3">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding VideoTime}" 
+                                                           Foreground="#569CD6" FontFamily="Consolas" Width="80" Margin="0,0,10,0"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding EventType}" 
+                                                           Foreground="{Binding EventColor}" FontWeight="Bold" Width="50" Margin="0,0,10,0"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding ZoneName}" 
+                                                           Foreground="White"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+                
+                <!-- Statistics Panel -->
+                <Border Grid.Row="2" x:Name="StatisticsPanel" Background="#1E1E1E" 
+                        BorderBrush="#007ACC" BorderThickness="1" Margin="5" Padding="10" 
+                        Visibility="Collapsed">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Statistics Summary" FontSize="12" FontWeight="Bold" 
+                                   Foreground="#007ACC" Margin="0,0,0,10"/>
+                        <StackPanel Grid.Row="1" x:Name="StatisticsContent">
+                            <TextBlock x:Name="StatsTotal" Text="Total Entries: 0" Foreground="White" Margin="0,2"/>
+                            <TextBlock x:Name="StatsTotalTime" Text="Total Time: 0.00s" Foreground="White" Margin="0,2"/>
+                            <TextBlock x:Name="StatsAvgTime" Text="Average Duration: 0.00s" Foreground="White" Margin="0,2"/>
+                            <TextBlock x:Name="StatsMinTime" Text="Min Duration: 0.00s" Foreground="White" Margin="0,2"/>
+                            <TextBlock x:Name="StatsMaxTime" Text="Max Duration: 0.00s" Foreground="White" Margin="0,2"/>
+                            <Separator Background="#3E3E42" Margin="0,5"/>
+                            <TextBlock x:Name="StatsByElement" Text="By Element:" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,5,0,2"/>
+                            <ItemsControl x:Name="StatsElementList" Margin="10,0,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                
+                <DataGrid Grid.Row="3" x:Name="TimeStudyGrid" 
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          GridLinesVisibility="All"
+                          Background="#252526"
+                          Foreground="White"
+                          RowBackground="#2D2D30"
+                          AlternatingRowBackground="#252526"
+                          BorderBrush="#3E3E42"
+                          HeadersVisibility="Column"
+                          SelectionChanged="TimeStudyGrid_SelectionChanged"
+                          Margin="0">
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="Background" Value="#007ACC"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Padding" Value="5"/>
+                            <Setter Property="BorderBrush" Value="#005A9E"/>
+                            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+                    <DataGrid.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="Background" Value="#1E1E1E"/>
+                            <Setter Property="BorderBrush" Value="#3E3E42"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#007ACC"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.CellStyle>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="Background" Value="#1E1E1E"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#264F78"/>
+                                </Trigger>
+                                <Trigger Property="AlternationIndex" Value="1">
+                                    <Setter Property="Background" Value="#252526"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}" Width="75" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontFamily" Value="Consolas"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Seg" Binding="{Binding Segment}" Width="40" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontFamily" Value="Consolas"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    <Setter Property="Foreground" Value="#4EC9B0"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Duration (s)" Binding="{Binding TimeInSeconds}" Width="80" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontFamily" Value="Consolas"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Element" Binding="{Binding ElementName}" Width="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Padding" Value="5"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                            <DataGridTextColumn.EditingElementStyle>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Background" Value="#1E1E1E"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="BorderBrush" Value="#007ACC"/>
+                                    <Setter Property="BorderThickness" Value="2"/>
+                                </Style>
+                            </DataGridTextColumn.EditingElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                        <DataGridTextColumn Header="Observations" Binding="{Binding Observations}" Width="150"/>
+                        <DataGridTextColumn Header="People" Binding="{Binding People}" Width="60"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                
+                <GroupBox Grid.Row="4" Header="Description" Margin="5" 
+                          Background="#252526" Foreground="White" BorderBrush="#3E3E42">
+                    <TextBox x:Name="AnnotationText" Height="80" TextWrapping="Wrap" 
+                             AcceptsReturn="True" Margin="5"
+                             Text="Enter description for timestamp..." 
+                             Background="#1E1E1E" Foreground="White" BorderBrush="#3E3E42"
+                             FontSize="11" Padding="5"
+                             TextChanged="AnnotationText_TextChanged"
+                             GotFocus="AnnotationText_GotFocus" LostFocus="AnnotationText_LostFocus"/>
+                </GroupBox>
+                
+                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="5" HorizontalAlignment="Right">
+                    <Button Content="🗑️ Clear All" Click="ClearData_Click" Width="100" Height="30" 
+                            Margin="0,0,5,0" Background="#A1260D" Foreground="White" FontWeight="Bold"/>
+                    <Button Content="❌ Delete" Click="DeleteSelected_Click" Width="100" Height="30"
+                            Background="#505050" Foreground="White" FontWeight="Bold"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+        
+        <!-- GridSplitter for resizing timeline -->
+        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" 
+                      Background="#3E3E42" ShowsPreview="False"/>
+        
+        <!-- Timeline Section (Bottom) -->
+        <Border Grid.Row="3" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Timeline Header -->
+                <Border Grid.Row="0" Background="#252526" Padding="10,5">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <TextBlock Text="Timeline" Foreground="White" FontWeight="Bold" 
+                                       VerticalAlignment="Center" Margin="0,0,15,0" FontSize="14"/>
+                            <Button Content="−" Click="TimelineZoomOut_Click" Width="25" Height="25" 
+                                    Margin="2" Background="#3E3E42" Foreground="White" FontWeight="Bold"
+                                    ToolTip="Zoom Out Timeline"/>
+                            <TextBlock x:Name="TimelineZoomLabel" Text="100%" VerticalAlignment="Center" 
+                                       Foreground="White" Margin="5,0" FontFamily="Consolas" MinWidth="50" TextAlignment="Center"
+                                       FontSize="12" FontWeight="Bold"/>
+                            <Button Content="+" Click="TimelineZoomIn_Click" Width="25" Height="25" 
+                                    Margin="2" Background="#3E3E42" Foreground="White" FontWeight="Bold"
+                                    ToolTip="Zoom In Timeline"/>
+                            <Button Content="⊙" Click="TimelineZoomReset_Click" Width="25" Height="25" 
+                                    Margin="2" Background="#3E3E42" Foreground="White" FontWeight="Bold"
+                                    ToolTip="Reset Timeline Zoom"/>
+                            <Button Content="⊏⊐" Click="TimelineZoomFit_Click" Width="30" Height="25" 
+                                    Margin="2,2,10,2" Background="#3E3E42" Foreground="White" FontWeight="Bold"
+                                    FontSize="10" ToolTip="Fit Timeline to Window"/>
+                        </StackPanel>
+                        
+                        <TextBlock Grid.Column="2" x:Name="TotalDuration" Text="Duration: 00:00:00" 
+                                   Foreground="White" VerticalAlignment="Center" 
+                                   FontFamily="Consolas" FontSize="11" FontWeight="Bold"/>
+                    </Grid>
+                </Border>
+                
+                <!-- Timeline Canvas Area -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Fixed Left Column Header -->
+                    <Border Grid.Row="0" Grid.Column="0" Background="#252526" BorderBrush="#3E3E42" BorderThickness="0,0,1,1">
+                        <TextBlock Text="Segments" Foreground="White" VerticalAlignment="Center" 
+                                   FontSize="11" FontWeight="Bold" TextAlignment="Center"/>
+                    </Border>
+                    
+                    <!-- Time Ruler (scrollable and scrubable) -->
+                    <ScrollViewer Grid.Row="0" Grid.Column="1" x:Name="TimelineScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                                  PreviewMouseWheel="TimelineScrollViewer_PreviewMouseWheel" Background="#1E1E1E">
+                        <Canvas x:Name="TimeRulerCanvas" Background="#1E1E1E" Height="50"
+                                MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                MouseMove="TimelineCanvas_MouseMove"
+                                MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp"
+                                Cursor="Hand">
+                            <!-- Time markers will be drawn here -->
+                        </Canvas>
+                    </ScrollViewer>
+                    
+                    <!-- Playback Indicator Line - overlays both ruler and tracks -->
+                    <Line x:Name="PlaybackIndicatorLine" Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
+                          Y1="0" Y2="2000" Stroke="#FF0000" StrokeThickness="2"
+                          IsHitTestVisible="False" Visibility="Collapsed"/>
+                    
+                    <!-- Fixed Left Column - Segment Labels with vertical scroll -->
+                    <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"
+                                  x:Name="SegmentLabelsScroll" Background="#252526">
+                        <StackPanel x:Name="SegmentLabelsPanel">
+                            <!-- Segment 0 (M key) - First for logical ordering -->
+                            <Border x:Name="Segment0Label" Height="60" Background="#3E3E42" BorderBrush="#3E3E42" BorderThickness="0,0,1,1" Visibility="Collapsed">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Rename Segment" Click="RenameSegment_Click" Tag="0"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock x:Name="Segment0Text" Text="Seg M" Foreground="#999999" FontSize="13" FontWeight="Bold" TextAlignment="Center"/>
+                                    <TextBlock x:Name="Segment0Stats" Text="0 entries" Foreground="#CCC" FontSize="10" TextAlignment="Center" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Segment 1 -->
+                            <Border x:Name="Segment1Label" Height="60" Background="#3E3E42" BorderBrush="#3E3E42" BorderThickness="0,0,1,1" Visibility="Collapsed">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Rename Segment" Click="RenameSegment_Click" Tag="1"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock x:Name="Segment1Text" Text="Seg 1" Foreground="#FF8C00" FontSize="13" FontWeight="Bold" TextAlignment="Center"/>
+                                    <TextBlock x:Name="Segment1Stats" Text="0 entries" Foreground="#CCC" FontSize="10" TextAlignment="Center" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Segment 2 -->
+                            <Border x:Name="Segment2Label" Height="60" Background="#3E3E42" BorderBrush="#3E3E42" BorderThickness="0,0,1,1" Visibility="Collapsed">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Rename Segment" Click="RenameSegment_Click" Tag="2"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock x:Name="Segment2Text" Text="Seg 2" Foreground="#1E90FF" FontSize="13" FontWeight="Bold" TextAlignment="Center"/>
+                                    <TextBlock x:Name="Segment2Stats" Text="0 entries" Foreground="#CCC" FontSize="10" TextAlignment="Center" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Segment 3 -->
+                            <Border x:Name="Segment3Label" Height="60" Background="#3E3E42" BorderBrush="#3E3E42" BorderThickness="0,0,1,1" Visibility="Collapsed">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Rename Segment" Click="RenameSegment_Click" Tag="3"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock x:Name="Segment3Text" Text="Seg 3" Foreground="#FF1493" FontSize="13" FontWeight="Bold" TextAlignment="Center"/>
+                                    <TextBlock x:Name="Segment3Stats" Text="0 entries" Foreground="#CCC" FontSize="10" TextAlignment="Center" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Segment 4 -->
+                            <Border x:Name="Segment4Label" Height="60" Background="#3E3E42" BorderBrush="#3E3E42" BorderThickness="0,0,1,1" Visibility="Collapsed">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Rename Segment" Click="RenameSegment_Click" Tag="4"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock x:Name="Segment4Text" Text="Seg 4" Foreground="#FFD700" FontSize="13" FontWeight="Bold" TextAlignment="Center"/>
+                                    <TextBlock x:Name="Segment4Stats" Text="0 entries" Foreground="#CCC" FontSize="10" TextAlignment="Center" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Segment 5 -->
+                            <Border x:Name="Segment5Label" Height="60" Background="#3E3E42" BorderBrush="#3E3E42" BorderThickness="0,0,1,1" Visibility="Collapsed">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Rename Segment" Click="RenameSegment_Click" Tag="5"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock x:Name="Segment5Text" Text="Seg 5" Foreground="#32CD32" FontSize="13" FontWeight="Bold" TextAlignment="Center"/>
+                                    <TextBlock x:Name="Segment5Stats" Text="0 entries" Foreground="#CCC" FontSize="10" TextAlignment="Center" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                    
+                    <!-- Scrollable Timeline Tracks (synced scrolling) -->
+                    <ScrollViewer Grid.Row="1" Grid.Column="1" x:Name="SegmentTracksScroll" 
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Hidden"
+                                  ScrollChanged="SegmentTracksScroll_ScrollChanged">
+                        <StackPanel x:Name="SegmentTracksPanel">
+                            <!-- Segment 0 Track (M key) - First for logical ordering -->
+                            <Border x:Name="Segment0Track" Height="60" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Visibility="Collapsed"
+                                    MouseEnter="SegmentTrack_MouseEnter" MouseLeave="SegmentTrack_MouseLeave">
+                                <Canvas x:Name="Segment0Canvas" Background="Transparent" MinWidth="2000" Height="60"
+                                        MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                        MouseMove="TimelineCanvas_MouseMove"
+                                        MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp">
+                                </Canvas>
+                            </Border>
+                            
+                            <!-- Segment 1 Track -->
+                            <Border x:Name="Segment1Track" Height="60" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Visibility="Collapsed"
+                                    MouseEnter="SegmentTrack_MouseEnter" MouseLeave="SegmentTrack_MouseLeave">
+                                <Canvas x:Name="Segment1Canvas" Background="Transparent" MinWidth="2000" Height="60"
+                                        MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                        MouseMove="TimelineCanvas_MouseMove"
+                                        MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp">
+                                </Canvas>
+                            </Border>
+                            
+                            <!-- Segment 2 Track -->
+                            <Border x:Name="Segment2Track" Height="60" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Visibility="Collapsed"
+                                    MouseEnter="SegmentTrack_MouseEnter" MouseLeave="SegmentTrack_MouseLeave">
+                                <Canvas x:Name="Segment2Canvas" Background="Transparent" MinWidth="2000" Height="60"
+                                        MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                        MouseMove="TimelineCanvas_MouseMove"
+                                        MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp">
+                                </Canvas>
+                            </Border>
+                            
+                            <!-- Segment 3 Track -->
+                            <Border x:Name="Segment3Track" Height="60" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Visibility="Collapsed"
+                                    MouseEnter="SegmentTrack_MouseEnter" MouseLeave="SegmentTrack_MouseLeave">
+                                <Canvas x:Name="Segment3Canvas" Background="Transparent" MinWidth="2000" Height="60"
+                                        MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                        MouseMove="TimelineCanvas_MouseMove"
+                                        MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp">
+                                </Canvas>
+                            </Border>
+                            
+                            <!-- Segment 4 Track -->
+                            <Border x:Name="Segment4Track" Height="60" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Visibility="Collapsed"
+                                    MouseEnter="SegmentTrack_MouseEnter" MouseLeave="SegmentTrack_MouseLeave">
+                                <Canvas x:Name="Segment4Canvas" Background="Transparent" MinWidth="2000" Height="60"
+                                        MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                        MouseMove="TimelineCanvas_MouseMove"
+                                        MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp">
+                                </Canvas>
+                            </Border>
+                            
+                            <!-- Segment 5 Track -->
+                            <Border x:Name="Segment5Track" Height="60" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Visibility="Collapsed"
+                                    MouseEnter="SegmentTrack_MouseEnter" MouseLeave="SegmentTrack_MouseLeave">
+                                <Canvas x:Name="Segment5Canvas" Background="Transparent" MinWidth="2000" Height="60"
+                                        MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                        MouseMove="TimelineCanvas_MouseMove"
+                                        MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp">
+                                </Canvas>
+                            </Border>
+                            
+                            <!-- Hidden canvases for compatibility -->
+                            <Canvas x:Name="TimelineCanvas" Visibility="Collapsed" />
+                            <Canvas x:Name="ThumbnailCanvas" Visibility="Collapsed" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+        </Border>
+        
+        <!-- Status Bar -->
+        <StatusBar Grid.Row="4" Background="#007ACC" Height="25">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusText" Text="Ready" Foreground="White" FontWeight="Medium"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

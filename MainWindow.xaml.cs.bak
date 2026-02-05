@@ -1,0 +1,547 @@
+﻿using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Collections.ObjectModel;
+using System.Windows.Threading;
+using Microsoft.Win32;
+using System.IO;
+using System.Windows.Shapes;
+
+namespace VideoTimeStudy;
+
+/// <summary>
+/// Interaction logic for MainWindow.xaml
+/// </summary>
+public partial class MainWindow : Window
+{
+    private ObservableCollection<TimeStudyEntry> timeStudyData;
+    private DispatcherTimer timer;
+    private double currentSpeedRatio = 1.0;
+    private bool isUserDraggingSlider = false;
+    private bool wasPlayingBeforeScrub = false;
+    private double currentZoom = 1.0;
+    private double timelinePixelsPerSecond = 10.0;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        timeStudyData = new ObservableCollection<TimeStudyEntry>();
+        timeStudyData.CollectionChanged += TimeStudyData_CollectionChanged;
+        TimeStudyGrid.ItemsSource = timeStudyData;
+        
+        // Setup timer for updating video position
+        timer = new DispatcherTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(100);
+        timer.Tick += Timer_Tick;
+        
+        // Setup slider events for better scrubbing
+        TimeStudyGrid.SelectionChanged += TimeStudyGrid_SelectionChanged;
+        
+        // Initialize timeline
+        Loaded += MainWindow_Loaded;
+    }
+
+    private void TimeStudyData_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        // Recalculate durations when collection changes
+        RecalculateDurations();
+    }
+
+    private void RecalculateDurations()
+    {
+        for (int i = 0; i < timeStudyData.Count; i++)
+        {
+            if (i == 0)
+            {
+                // First entry: duration from start
+                double firstTime = TimeSpan.Parse(timeStudyData[i].Timestamp).TotalSeconds;
+                timeStudyData[i].TimeInSeconds = Math.Round(firstTime, 2);
+            }
+            else
+            {
+                // Subsequent entries: duration from previous
+                double currentTime = TimeSpan.Parse(timeStudyData[i].Timestamp).TotalSeconds;
+                double previousTime = TimeSpan.Parse(timeStudyData[i - 1].Timestamp).TotalSeconds;
+                timeStudyData[i].TimeInSeconds = Math.Round(currentTime - previousTime, 2);
+            }
+        }
+        
+        // Force grid refresh
+        TimeStudyGrid.Items.Refresh();
+    }
+
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        DrawTimeRuler();
+    }
+
+    private void DrawTimeRuler()
+    {
+        TimeRulerCanvas.Children.Clear();
+        
+        if (!VideoPlayer.NaturalDuration.HasTimeSpan)
+            return;
+        
+        double totalSeconds = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+        double canvasWidth = Math.Max(2000, totalSeconds * timelinePixelsPerSecond);
+        TimeRulerCanvas.Width = canvasWidth;
+        TimelineCanvas.MinWidth = canvasWidth;
+        
+        // Draw time markers every second
+        for (double time = 0; time <= totalSeconds; time += 1.0)
+        {
+            double x = time * timelinePixelsPerSecond;
+            
+            // Draw tick mark
+            bool isMajor = (time % 5 == 0);
+            Line tick = new Line
+            {
+                X1 = x,
+                Y1 = isMajor ? 10 : 20,
+                X2 = x,
+                Y2 = 30,
+                Stroke = Brushes.Gray,
+                StrokeThickness = isMajor ? 2 : 1
+            };
+            TimeRulerCanvas.Children.Add(tick);
+            
+            // Draw time label every 5 seconds
+            if (isMajor)
+            {
+                TextBlock label = new TextBlock
+                {
+                    Text = TimeSpan.FromSeconds(time).ToString(@"mm\:ss"),
+                    Foreground = Brushes.White,
+                    FontSize = 10,
+                    FontFamily = new FontFamily("Consolas")
+                };
+                Canvas.SetLeft(label, x - 15);
+                Canvas.SetTop(label, 0);
+                TimeRulerCanvas.Children.Add(label);
+            }
+        }
+    }
+
+    private void UpdateTimeline()
+    {
+        TimelineCanvas.Children.Clear();
+        
+        if (!VideoPlayer.NaturalDuration.HasTimeSpan)
+            return;
+        
+        double totalSeconds = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+        
+        // Draw timestamp markers on track 1
+        foreach (var entry in timeStudyData)
+        {
+            double entryTime = TimeSpan.Parse(entry.Timestamp).TotalSeconds;
+            double x = entryTime * timelinePixelsPerSecond;
+            
+            // Draw marker line
+            Line marker = new Line
+            {
+                X1 = x,
+                Y1 = 0,
+                X2 = x,
+                Y2 = 50,
+                Stroke = Brushes.Red,
+                StrokeThickness = 3
+            };
+            TimelineCanvas.Children.Add(marker);
+            
+            // Draw marker circle
+            Ellipse dot = new Ellipse
+            {
+                Width = 12,
+                Height = 12,
+                Fill = Brushes.Red,
+                Stroke = Brushes.White,
+                StrokeThickness = 2
+            };
+            Canvas.SetLeft(dot, x - 6);
+            Canvas.SetTop(dot, 19);
+            TimelineCanvas.Children.Add(dot);
+        }
+        
+        // Draw playhead
+        if (VideoPlayer.Position.TotalSeconds > 0)
+        {
+            double playheadX = VideoPlayer.Position.TotalSeconds * timelinePixelsPerSecond;
+            Line playhead = new Line
+            {
+                X1 = playheadX,
+                Y1 = 0,
+                X2 = playheadX,
+                Y2 = 100,
+                Stroke = new SolidColorBrush(Color.FromArgb(255, 0, 122, 204)),
+                StrokeThickness = 2
+            };
+            TimelineCanvas.Children.Add(playhead);
+        }
+    }
+
+    private void Timer_Tick(object? sender, EventArgs e)
+    {
+        if (VideoPlayer.NaturalDuration.HasTimeSpan && !isUserDraggingSlider)
+        {
+            CurrentTime.Text = VideoPlayer.Position.ToString(@"hh\:mm\:ss\.ff");
+            UpdateTimeline();
+        }
+    }
+
+    private void OpenVideo_Click(object sender, RoutedEventArgs e)
+    {
+        OpenFileDialog openFileDialog = new OpenFileDialog();
+        openFileDialog.Filter = "Video files (*.mp4;*.avi;*.mkv;*.wmv)|*.mp4;*.avi;*.mkv;*.wmv|All files (*.*)|*.*";
+        
+        if (openFileDialog.ShowDialog() == true)
+        {
+            VideoPlayer.Source = new Uri(openFileDialog.FileName);
+            VideoPlayer.Play();
+            VideoPlayer.Pause();
+            
+            VideoPlayer.MediaOpened += (s, ev) =>
+            {
+                if (VideoPlayer.NaturalDuration.HasTimeSpan)
+                {
+                    TotalDuration.Text = $"Duration: {VideoPlayer.NaturalDuration.TimeSpan.ToString(@"hh\:mm\:ss")}";
+                    DrawTimeRuler();
+                    UpdateTimeline();
+                    UpdateVideoMarkers();
+                }
+            };
+            
+            StatusText.Text = $"Loaded: {System.IO.Path.GetFileName(openFileDialog.FileName)}";
+        }
+    }
+
+    private void Play_Click(object sender, RoutedEventArgs e)
+    {
+        if (VideoPlayer.Source != null)
+        {
+            VideoPlayer.Play();
+            timer.Start();
+            VideoPlayer.SpeedRatio = currentSpeedRatio;
+            StatusText.Text = $"Playing at {currentSpeedRatio}x speed...";
+        }
+    }
+
+    private void Pause_Click(object sender, RoutedEventArgs e)
+    {
+        VideoPlayer.Pause();
+        timer.Stop();
+        StatusText.Text = "Paused";
+    }
+
+    private void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        VideoPlayer.Stop();
+        timer.Stop();
+        CurrentTime.Text = "00:00:00";
+        TimelineSlider.Value = 0;
+        StatusText.Text = "Stopped";
+    }
+
+    private void SetSpeed_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem && menuItem.Tag != null)
+        {
+            currentSpeedRatio = double.Parse(menuItem.Tag.ToString()!);
+            if (VideoPlayer.Source != null)
+            {
+                VideoPlayer.SpeedRatio = currentSpeedRatio;
+                StatusText.Text = $"Playback speed set to {currentSpeedRatio}x";
+                
+                // Update combobox to match
+                for (int i = 0; i < SpeedComboBox.Items.Count; i++)
+                {
+                    if (((ComboBoxItem)SpeedComboBox.Items[i]).Tag.ToString() == currentSpeedRatio.ToString())
+                    {
+                        SpeedComboBox.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void SpeedComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SpeedComboBox.SelectedItem is ComboBoxItem item && item.Tag != null)
+        {
+            currentSpeedRatio = double.Parse(item.Tag.ToString()!);
+            if (VideoPlayer.Source != null)
+            {
+                VideoPlayer.SpeedRatio = currentSpeedRatio;
+                StatusText.Text = $"Playback speed: {currentSpeedRatio}x";
+            }
+        }
+    }
+
+    private void ZoomIn_Click(object sender, RoutedEventArgs e)
+    {
+        currentZoom = Math.Min(currentZoom + 0.25, 4.0);
+        ApplyZoom();
+    }
+
+    private void ZoomOut_Click(object sender, RoutedEventArgs e)
+    {
+        currentZoom = Math.Max(currentZoom - 0.25, 0.25);
+        ApplyZoom();
+    }
+
+    private void ZoomReset_Click(object sender, RoutedEventArgs e)
+    {
+        currentZoom = 1.0;
+        ApplyZoom();
+    }
+
+    private void ApplyZoom()
+    {
+        VideoViewbox.LayoutTransform = new ScaleTransform(currentZoom, currentZoom);
+        ZoomLabel.Text = $"{currentZoom * 100:F0}%";
+        StatusText.Text = $"Zoom: {currentZoom * 100:F0}%";
+        UpdateVideoMarkers();
+    }
+
+    private void TimelineSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (isUserDraggingSlider && VideoPlayer.NaturalDuration.HasTimeSpan)
+        {
+            VideoPlayer.Position = TimeSpan.FromSeconds(e.NewValue);
+            CurrentTime.Text = TimeSpan.FromSeconds(e.NewValue).ToString(@"hh\:mm\:ss");
+        }
+    }
+
+    private void TimelineSlider_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        isUserDraggingSlider = true;
+        wasPlayingBeforeScrub = timer.IsEnabled;
+        if (wasPlayingBeforeScrub)
+        {
+            VideoPlayer.Pause();
+            timer.Stop();
+        }
+    }
+
+    private void TimelineSlider_PreviewMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        isUserDraggingSlider = false;
+        if (wasPlayingBeforeScrub)
+        {
+            VideoPlayer.Play();
+            timer.Start();
+        }
+    }
+
+    private void AddTimestamp_Click(object sender, RoutedEventArgs e)
+    {
+        if (VideoPlayer.Source != null)
+        {
+            double currentTime = VideoPlayer.Position.TotalSeconds;
+            double timeDifference = 0;
+            
+            // Calculate time difference from last entry
+            if (timeStudyData.Count > 0)
+            {
+                var lastEntry = timeStudyData[timeStudyData.Count - 1];
+                double lastTime = TimeSpan.Parse(lastEntry.Timestamp).TotalSeconds;
+                timeDifference = currentTime - lastTime;
+            }
+            else
+            {
+                // First entry shows time from start
+                timeDifference = currentTime;
+            }
+            
+            var entry = new TimeStudyEntry
+            {
+                Timestamp = VideoPlayer.Position.ToString(@"hh\:mm\:ss"),
+                TimeInSeconds = Math.Round(timeDifference, 2),
+                Description = AnnotationText.Text,
+                Category = ""
+            };
+            
+            timeStudyData.Add(entry);
+            AnnotationText.Clear();
+            AnnotationText.Text = "Enter description for timestamp...";
+            StatusText.Text = $"Added entry at {entry.Timestamp} (Duration: {timeDifference:F2}s)";
+            
+            UpdateTimeline();
+            UpdateVideoMarkers();
+        }
+        else
+        {
+            MessageBox.Show("Please load a video first.", "No Video", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void UpdateTimelineMarkers()
+    {
+        TimelineMarkerCanvas.Children.Clear();
+        
+        if (!VideoPlayer.NaturalDuration.HasTimeSpan || TimelineSlider.ActualWidth == 0)
+            return;
+        
+        double totalSeconds = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+        
+        foreach (var entry in timeStudyData)
+        {
+            double entryTime = TimeSpan.Parse(entry.Timestamp).TotalSeconds;
+            double position = (entryTime / totalSeconds) * TimelineSlider.ActualWidth;
+            
+            Line marker = new Line
+            {
+                X1 = position,
+                Y1 = 0,
+                X2 = position,
+                Y2 = TimelineSlider.ActualHeight,
+                Stroke = Brushes.Red,
+                StrokeThickness = 2
+            };
+            
+            TimelineMarkerCanvas.Children.Add(marker);
+        }
+    }
+
+    private void UpdateVideoMarkers()
+    {
+        MarkerCanvas.Children.Clear();
+        
+        if (!VideoPlayer.NaturalDuration.HasTimeSpan)
+            return;
+        
+        double totalSeconds = VideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+        double canvasWidth = 1920;
+        double canvasHeight = 1080;
+        
+        foreach (var entry in timeStudyData)
+        {
+            double entryTime = TimeSpan.Parse(entry.Timestamp).TotalSeconds;
+            double position = (entryTime / totalSeconds) * canvasWidth;
+            
+            // Vertical line marker
+            Line marker = new Line
+            {
+                X1 = position,
+                Y1 = 0,
+                X2 = position,
+                Y2 = canvasHeight,
+                Stroke = new SolidColorBrush(Color.FromArgb(180, 255, 0, 0)),
+                StrokeThickness = 4
+            };
+            
+            MarkerCanvas.Children.Add(marker);
+            
+            // Small circle at top
+            Ellipse dot = new Ellipse
+            {
+                Width = 20,
+                Height = 20,
+                Fill = Brushes.Red,
+                Stroke = Brushes.White,
+                StrokeThickness = 2
+            };
+            Canvas.SetLeft(dot, position - 10);
+            Canvas.SetTop(dot, 10);
+            
+            MarkerCanvas.Children.Add(dot);
+        }
+    }
+
+    private void ClearData_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Are you sure you want to clear all data?", "Confirm Clear", 
+            MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+        {
+            timeStudyData.Clear();
+            StatusText.Text = "Data cleared";
+            UpdateTimeline();
+            UpdateVideoMarkers();
+        }
+    }
+
+    private void DeleteSelected_Click(object sender, RoutedEventArgs e)
+    {
+        if (TimeStudyGrid.SelectedItem != null)
+        {
+            var selectedEntry = (TimeStudyEntry)TimeStudyGrid.SelectedItem;
+            timeStudyData.Remove(selectedEntry);
+            StatusText.Text = "Entry deleted";
+            UpdateTimeline();
+            UpdateVideoMarkers();
+        }
+    }
+
+    private void ExportData_Click(object sender, RoutedEventArgs e)
+    {
+        SaveFileDialog saveFileDialog = new SaveFileDialog();
+        saveFileDialog.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+        saveFileDialog.DefaultExt = "csv";
+        
+        if (saveFileDialog.ShowDialog() == true)
+        {
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(saveFileDialog.FileName))
+                {
+                    // Write header
+                    writer.WriteLine("Timestamp,Duration (sec),Description,Category");
+                    
+                    // Write data
+                    foreach (var entry in timeStudyData)
+                    {
+                        writer.WriteLine($"{entry.Timestamp},{entry.TimeInSeconds},\"{entry.Description}\",{entry.Category}");
+                    }
+                }
+                
+                StatusText.Text = $"Data exported to {System.IO.Path.GetFileName(saveFileDialog.FileName)}";
+                MessageBox.Show("Data exported successfully!", "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error exporting data: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void Exit_Click(object sender, RoutedEventArgs e)
+    {
+        Application.Current.Shutdown();
+    }
+
+    private void TimelineCanvas_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (!VideoPlayer.NaturalDuration.HasTimeSpan)
+            return;
+        
+        Point clickPos = e.GetPosition(TimelineCanvas);
+        double clickedTime = clickPos.X / timelinePixelsPerSecond;
+        
+        VideoPlayer.Position = TimeSpan.FromSeconds(clickedTime);
+        UpdateTimeline();
+        StatusText.Text = $"Jumped to: {TimeSpan.FromSeconds(clickedTime).ToString(@"hh\:mm\:ss")}";
+    }
+
+    private void TimeStudyGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TimeStudyGrid.SelectedItem is TimeStudyEntry entry)
+        {
+            AnnotationText.Text = entry.Description;
+        }
+    }
+}
+
+public class TimeStudyEntry
+{
+    public string Timestamp { get; set; } = "";
+    public double TimeInSeconds { get; set; }
+    public string Description { get; set; } = "";
+    public string Category { get; set; } = "";
+}
