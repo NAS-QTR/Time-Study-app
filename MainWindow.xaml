@@ -33,25 +33,6 @@
                 <Separator/>
                 <MenuItem Header="E_xit" Click="Exit_Click" Foreground="Black"/>
             </MenuItem>
-            <MenuItem Header="_Analysis" Foreground="White">
-                <MenuItem Header="_Define Work Zone" Click="DefineZone_Click" Foreground="Black"/>
-                <MenuItem Header="_Toggle Zone Display" Click="ToggleZones_Click" Foreground="Black"/>
-                <MenuItem Header="⚙️ Configure _Zone Settings" Click="ConfigureZoneSettings_Click" Foreground="Black"/>
-                <Separator/>
-                <MenuItem Header="⚙️ Motion Detection _Settings" Click="MotionDetectionSettings_Click" Foreground="Black"/>
-                <MenuItem Header="▶ _Start Motion Tracking" Click="StartMotionTracking_Click" Foreground="Black"/>
-                <MenuItem Header="🔢 Show _Person Numbers" Click="TogglePersonNumbers_Click" Foreground="Black"/>
-                <MenuItem Header="👻 Toggle Motion Trail Overlay" Click="ToggleMotionTrail_Click" Foreground="Black"/>
-                <Separator/>
-                <MenuItem Header="💾 _Save Zones" Click="SaveZones_Click" Foreground="Black"/>
-                <MenuItem Header="📂 _Load Zones" Click="LoadZones_Click" Foreground="Black"/>
-                <Separator/>
-                <MenuItem Header="📊 Show Zone _Timeline" Click="ToggleZoneTimeline_Click" Foreground="Black"/>
-                <MenuItem Header="📊 Zone _Statistics" Click="ShowZoneStatistics_Click" Foreground="Black"/>
-                <MenuItem Header="💾 _Export Zone Data" Click="ExportZoneData_Click" Foreground="Black"/>
-                <Separator/>
-                <MenuItem Header="_Clear All Zones" Click="ClearZones_Click" Foreground="Black"/>
-            </MenuItem>
             <MenuItem Header="_Playback" Foreground="White">
                 <MenuItem Header="Speed" IsEnabled="False" FontWeight="Bold" Foreground="Black"/>
                 <MenuItem Header="0.25x" Click="SetSpeed_Click" Tag="0.25" Foreground="Black"/>
@@ -99,10 +80,7 @@
                                   PreviewMouseLeftButtonDown="VideoScrollViewer_PreviewMouseLeftButtonDown"
                                   PreviewMouseLeftButtonUp="VideoScrollViewer_PreviewMouseLeftButtonUp"
                                   PreviewMouseMove="VideoScrollViewer_PreviewMouseMove">
-                        <Grid x:Name="VideoContainer" Width="3648" Height="2052" ClipToBounds="True"
-                              MouseDown="ZoneCanvas_MouseDown" 
-                              MouseMove="ZoneCanvas_MouseMove" 
-                              MouseUp="ZoneCanvas_MouseUp">
+                        <Grid x:Name="VideoContainer" Width="3648" Height="2052" ClipToBounds="True">
                             <Grid.LayoutTransform>
                                 <ScaleTransform x:Name="VideoScaleTransform" ScaleX="1" ScaleY="1"/>
                             </Grid.LayoutTransform>
@@ -113,9 +91,7 @@
                                           ScrubbingEnabled="True"
                                           Stretch="Uniform"
                                           MediaFailed="VideoPlayer_MediaFailed"/>
-                            <Canvas x:Name="MotionTrailCanvas" Width="3648" Height="2052" Background="Transparent" IsHitTestVisible="False"/>
                             <Canvas x:Name="MarkerCanvas" Width="3648" Height="2052" Background="Transparent" IsHitTestVisible="False"/>
-                            <Canvas x:Name="ZoneCanvas" Width="3648" Height="2052" Background="Transparent" IsHitTestVisible="True"/>
                         </Grid>
                     </ScrollViewer>
                 </Border>
@@ -245,24 +221,6 @@
                     </Grid>
                 </Border>
                 
-                <!-- Zone Occupancy Timeline -->
-                <Border x:Name="ZoneTimelinePanel" Grid.Row="2" Background="#1E1E1E" 
-                        BorderBrush="#3E3E42" BorderThickness="0,1,0,0" Padding="10,5" 
-                        Visibility="Collapsed" MaxHeight="150">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
-                            <TextBlock Text="📍 Zone Occupancy Timeline" FontSize="11" FontWeight="Bold" 
-                                       Foreground="#2E7D32" VerticalAlignment="Center"/>
-                        </StackPanel>
-                        
-                        <Canvas x:Name="ZoneTimelineCanvas" Grid.Row="1" Height="100" Background="#2D2D30" ClipToBounds="True"/>
-                    </Grid>
-                </Border>
             </Grid>
             
             <!-- Splitter -->
@@ -289,10 +247,6 @@
                         <TextBlock Grid.Column="0" Text="📊 Time Study Data" FontSize="14" FontWeight="Bold" 
                                    Foreground="White" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
-                            <Button Content="🎯 Zone Log" Click="ToggleZoneLog_Click" 
-                                    Width="90" Height="28" Margin="5,0" 
-                                    Background="#2E7D32" Foreground="White" FontSize="11"
-                                    ToolTip="Show zone entry/exit log"/>
                             <Button Content="📊 Statistics" Click="ShowStatistics_Click" 
                                     Width="90" Height="28" Margin="5,0" 
                                     Background="#0E639C" Foreground="White" FontSize="11"
@@ -303,48 +257,6 @@
                                           Background="#3E3E42" Foreground="White" FontSize="11"
                                           ToolTip="Toggle between HH:MM:SS and decimal hours"/>
                         </StackPanel>
-                    </Grid>
-                </Border>
-                
-                <!-- Zone Event Log Panel -->
-                <Border Grid.Row="1" x:Name="ZoneLogPanel" Background="#1E1E1E" 
-                        BorderBrush="#2E7D32" BorderThickness="1" Margin="5" Padding="10" 
-                        Visibility="Collapsed" MaxHeight="200">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                            <TextBlock Text="🎯 Zone Entry/Exit Log" FontSize="12" FontWeight="Bold" 
-                                       Foreground="#2E7D32" VerticalAlignment="Center"/>
-                            <Button Content="Clear Log" Click="ClearZoneLog_Click" 
-                                    Width="80" Height="22" Margin="10,0,0,0"
-                                    Background="#D32F2F" Foreground="White" FontSize="10"/>
-                        </StackPanel>
-                        <ScrollViewer x:Name="ZoneLogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="150">
-                            <ItemsControl x:Name="ZoneEventList">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Padding="5,3">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding VideoTime}" 
-                                                           Foreground="#569CD6" FontFamily="Consolas" Width="80" Margin="0,0,10,0"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding EventType}" 
-                                                           Foreground="{Binding EventColor}" FontWeight="Bold" Width="50" Margin="0,0,10,0"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding ZoneName}" 
-                                                           Foreground="White"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
                     </Grid>
                 </Border>
                 

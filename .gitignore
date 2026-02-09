@@ -23,9 +23,6 @@ packages/
 Releases/
 *.zip
 
-# ONNX models (large files)
-*.onnx
-
 # Temporary files
 *.tmp
 *.bak

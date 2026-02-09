@@ -75,9 +75,6 @@ Both deployment methods include:
 - ✓ Video Time Study application
 - ✓ .NET 10.0 Runtime (self-contained)
 - ✓ All required DLLs and dependencies
-- ✓ YOLO models (yolo11n.onnx, yolo11n-pose.onnx)
-- ✓ ONNX Runtime libraries
-- ✓ DirectML support for GPU acceleration
 
 ## File Sizes
 
@@ -107,10 +104,6 @@ The size is larger because it's self-contained (includes .NET runtime), but this
 
 ### "Squirrel not found" error
 - Run: `dotnet tool install --global Clowd.Squirrel`
-
-### ONNX models missing in output
-- Ensure `yolo11n.onnx` and `yolo11n-pose.onnx` are in the project root
-- The build script automatically includes them
 
 ### Large file size
 - This is normal for self-contained apps
@@ -147,9 +140,7 @@ Before sharing with users:
 
 - [ ] Test the built package on a clean Windows machine
 - [ ] Verify all features work (video playback, marking, export)
-- [ ] Check that ONNX models are loading correctly
 - [ ] Test on both Windows 10 and Windows 11
-- [ ] Verify GPU acceleration works (if DirectML is available)
 - [ ] Include user documentation (README)
 - [ ] Provide support contact information
 
@@ -165,7 +156,6 @@ When sharing installers:
 
 For issues or questions:
 - Check the main README.md for application usage
-- Review the YOLO_MODEL_SETUP.md for AI feature setup
 - Contact: Nortek, Inc.
 
 ---

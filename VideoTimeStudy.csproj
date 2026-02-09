@@ -22,22 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Include ONNX models in the output -->
-    <None Update="yolo11n-pose.onnx">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="yolo11n.onnx">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <EmbeddedResource Remove="VideoTimeStudy.Tests\**" />
     <None Remove="VideoTimeStudy.Tests\**" />
     <Page Remove="VideoTimeStudy.Tests\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.21.0" />
-    <!-- DirectML temporarily removed due to DLL conflict during publish -->
-    <!-- <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.21.0" /> -->
   </ItemGroup>
 
 </Project>

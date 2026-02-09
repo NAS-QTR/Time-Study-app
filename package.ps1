@@ -74,8 +74,7 @@ FEATURES:
   * Timestamp marking with descriptions
   * Excel-like data grid for time study entries
   * CSV export functionality
-  * Person detection and tracking (YOLO models)
-  * Motion tracking and analysis
+  * Multi-segment video support
 
 REQUIREMENTS:
   * Windows 10 or later (64-bit)
@@ -93,7 +92,6 @@ USAGE TIPS:
   * Place video files in an accessible folder
   * Export results to CSV for further analysis
   * Use keyboard shortcuts for faster workflow
-  * YOLO models enable automatic person detection
 
 SUPPORT:
   For questions or issues, contact: Nortek, Inc.
@@ -115,7 +113,6 @@ Version $Version
 * Initial portable release
 * Self-contained deployment (no installation required)
 * All dependencies included
-* YOLO models for person detection
 * CSV export functionality
 * Video playback and timeline controls
 
@@ -159,7 +156,6 @@ Write-Host "  [X] No installation required" -ForegroundColor Green
 Write-Host "  [X] No admin rights required" -ForegroundColor Green
 Write-Host "  [X] Self-contained (.NET included)" -ForegroundColor Green
 Write-Host "  [X] All dependencies included" -ForegroundColor Green
-Write-Host "  [X] ONNX models included" -ForegroundColor Green
 Write-Host "  [X] Portable (run from anywhere)" -ForegroundColor Green
 Write-Host ""
 Write-Host "READY TO SHARE!" -ForegroundColor Green
