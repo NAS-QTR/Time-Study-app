@@ -12,7 +12,7 @@ This portable version:
 - ✓ **No installation needed** - just extract and run
 - ✓ **No admin rights required** - installs to user space
 - ✓ **Self-contained** - includes .NET 10.0 runtime
-- ✓ **All dependencies included** - ONNX Runtime, models, everything!
+- ✓ **All dependencies included**
 - ✓ **Portable** - run from anywhere (desktop, USB drive, network share)
 
 ## 📦 How to Share
@@ -53,8 +53,6 @@ analyzing videos immediately.
 Inside the package:
 - ✓ VideoTimeStudy.exe - Main application
 - ✓ .NET 10.0 runtime (self-contained)
-- ✓ ONNX Runtime libraries
-- ✓ YOLO models (yolo11n.onnx, yolo11n-pose.onnx)
 - ✓ All required DLLs and dependencies
 - ✓ README.txt - User documentation
 - ✓ CHANGELOG.txt - Version history
@@ -78,8 +76,7 @@ Before sharing, test on a clean machine:
 1. Extract the ZIP to a test location
 2. Run the application
 3. Test all features (video playback, marking, export)
-4. Verify YOLO models load correctly
-5. Test CSV export functionality
+4. Test CSV export functionality
 
 ## 📊 System Requirements for Users
 
@@ -90,7 +87,6 @@ Users need:
 
 ## 🐛 Known Limitations
 
-- DirectML GPU acceleration temporarily disabled (CPU-based ONNX inference still works)
 - File size is larger (~85 MB) because it's self-contained
   - Benefit: Users don't need to install anything separately!
 

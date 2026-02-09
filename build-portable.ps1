@@ -50,7 +50,8 @@ FEATURES:
 ✓ Timestamp marking with descriptions
 ✓ Excel-like data grid for time study entries
 ✓ CSV export functionality
-✓ Person detection and tracking (YOLO models included)
+✓ Person detection and tracking
+✓ Multi-segment video support
 
 SYSTEM REQUIREMENTS:
 - Windows 10 or later
@@ -83,7 +84,7 @@ Write-Host "  Does NOT require installation" -ForegroundColor Green
 Write-Host "  Does NOT require admin rights" -ForegroundColor Green
 Write-Host "  Can run from any folder (USB drive, network share, etc.)" -ForegroundColor Green
 Write-Host "  Self-contained (includes .NET runtime)" -ForegroundColor Green
-Write-Host "  Includes all dependencies and ONNX models" -ForegroundColor Green
+Write-Host "  Includes all dependencies" -ForegroundColor Green
 Write-Host ""
 Write-Host "To share: Send the ZIP file to users!" -ForegroundColor Cyan
 
