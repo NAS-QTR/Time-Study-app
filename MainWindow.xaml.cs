@@ -51,6 +51,11 @@ public partial class MainWindow : Window
         { 5, "Seg 5" }
     };
     
+    // Save tracking
+    private bool hasUnsavedChanges = false;
+    private string? currentProjectFilePath = null;
+    private const string BaseWindowTitle = "Video Time Study Editor";
+    
     // Pan and zoom fields
     private bool isPanning = false;
     private Point panStartPoint;
@@ -160,6 +165,9 @@ public partial class MainWindow : Window
         timeStudyData = new ObservableCollection<TimeStudyEntry>();
         TimeStudyGrid.ItemsSource = timeStudyData;
 
+        // Subscribe to collection changes for tracking modifications
+        timeStudyData.CollectionChanged += (s, e) => MarkAsModified();
+
         // Populate element library dropdown immediately
         PopulateElementLibrary();
         
@@ -190,6 +198,54 @@ public partial class MainWindow : Window
         // Initialize timeline
         Loaded += MainWindow_Loaded;
         
+        // Initialize window title
+        UpdateWindowTitle();
+    }
+
+    private void UpdateWindowTitle()
+    {
+        string fileName = !string.IsNullOrEmpty(currentProjectFilePath) 
+            ? System.IO.Path.GetFileName(currentProjectFilePath) 
+            : "Untitled";
+        string modifiedIndicator = hasUnsavedChanges ? "*" : "";
+        Title = $"{BaseWindowTitle} - {fileName}{modifiedIndicator}";
+    }
+
+    private void MarkAsModified()
+    {
+        if (!hasUnsavedChanges)
+        {
+            hasUnsavedChanges = true;
+            UpdateWindowTitle();
+        }
+    }
+
+    private void Window_Closing(object sender, CancelEventArgs e)
+    {
+        if (hasUnsavedChanges)
+        {
+            var result = MessageBox.Show(
+                "You have unsaved changes. Do you want to save before closing?",
+                "Unsaved Changes",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                // Try to save
+                SaveProject_Click(this, new RoutedEventArgs());
+                // If still unsaved (user cancelled save dialog), cancel close
+                if (hasUnsavedChanges)
+                {
+                    e.Cancel = true;
+                }
+            }
+            else if (result ==MessageBoxResult.Cancel)
+            {
+                e.Cancel = true;
+            }
+            // If No, allow close without saving
+        }
     }
 
     private void PopulateElementLibrary()
@@ -433,6 +489,14 @@ public partial class MainWindow : Window
         // Ignore keyboard shortcuts when typing in a text field
         if (e.OriginalSource is TextBox || e.OriginalSource is ComboBox)
         {
+            return;
+        }
+        
+        // Ctrl+S: Save project
+        if (e.Key == Key.S && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            SaveProject_Click(this, new RoutedEventArgs());
+            e.Handled = true;
             return;
         }
         
@@ -1121,6 +1185,30 @@ public partial class MainWindow : Window
 
     private void OpenVideo_Click(object sender, RoutedEventArgs e)
     {
+        // Check for unsaved changes
+        if (hasUnsavedChanges)
+        {
+            var result = MessageBox.Show(
+                "You have unsaved changes. Do you want to save before opening a new video?",
+                "Unsaved Changes",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                SaveProject_Click(this, new RoutedEventArgs());
+                // If still unsaved (user cancelled save dialog), cancel open
+                if (hasUnsavedChanges)
+                {
+                    return;
+                }
+            }
+            else if (result == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+        }
+        
         OpenFileDialog openFileDialog = new OpenFileDialog();
         openFileDialog.Filter = "Video files (*.mp4;*.avi;*.mkv;*.wmv)|*.mp4;*.avi;*.mkv;*.wmv|All files (*.*)|*.*";
         
@@ -1886,43 +1974,66 @@ public partial class MainWindow : Window
 
     private void SaveProject_Click(object sender, RoutedEventArgs e)
     {
+        // Quick save - use existing file path or prompt if new
+        if (!string.IsNullOrEmpty(currentProjectFilePath))
+        {
+            SaveProjectToFile(currentProjectFilePath);
+        }
+        else
+        {
+            SaveProjectAs_Click(sender, e);
+        }
+    }
+
+    private void SaveProjectAs_Click(object sender, RoutedEventArgs e)
+    {
         SaveFileDialog saveFileDialog = new SaveFileDialog();
         saveFileDialog.Filter = "Video Time Study Project (*.vtsp)|*.vtsp|All files (*.*)|*.*";
         saveFileDialog.DefaultExt = "vtsp";
         
         if (saveFileDialog.ShowDialog() == true)
         {
-            try
+            SaveProjectToFile(saveFileDialog.FileName);
+        }
+    }
+
+    private void SaveProjectToFile(string filePath)
+    {
+        try
+        {
+            var projectData = new ProjectData
             {
-                var projectData = new ProjectData
+                VideoSegments = videoSegments,
+                TimeStudyEntries = timeStudyData.Select(e => new TimeStudyEntryData
                 {
-                    VideoSegments = videoSegments,
-                    TimeStudyEntries = timeStudyData.Select(e => new TimeStudyEntryData
-                    {
-                        Timestamp = e.Timestamp,
-                        TimeInSeconds = e.TimeInSeconds,
-                        ElementName = e.ElementName,
-                        Description = e.Description,
-                        Observations = e.Observations,
-                        People = e.People,
-                        Category = e.Category,
-                        Segment = e.Segment,
-                        ThumbnailBase64 = e.ThumbnailImage != null ? BitmapToBase64(e.ThumbnailImage) : null
-                    }).ToList(),
-                    SegmentNames = segmentNames,
-                    ElementLibrary = elementLibrary
-                };
-                
-                string json = JsonSerializer.Serialize(projectData, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(saveFileDialog.FileName, json);
-                
-                StatusText.Text = $"Project saved: {System.IO.Path.GetFileName(saveFileDialog.FileName)}";
-                MessageBox.Show("Project saved successfully!", "Save Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error saving project: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+                    Timestamp = e.Timestamp,
+                    TimeInSeconds = e.TimeInSeconds,
+                    ElementName = e.ElementName,
+                    Description = e.Description,
+                    Observations = e.Observations,
+                    People = e.People,
+                    Category = e.Category,
+                    Segment = e.Segment,
+                    ThumbnailBase64 = e.ThumbnailImage != null ? BitmapToBase64(e.ThumbnailImage) : null
+                }).ToList(),
+                SegmentNames = segmentNames,
+                ElementLibrary = elementLibrary
+            };
+            
+            string json = JsonSerializer.Serialize(projectData, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(filePath, json);
+            
+            // Update tracking
+            currentProjectFilePath = filePath;
+            hasUnsavedChanges = false;
+            UpdateWindowTitle();
+            
+            StatusText.Text = $"Project saved: {System.IO.Path.GetFileName(filePath)}";
+            MessageBox.Show("Project saved successfully!", "Save Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error saving project: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -2018,6 +2129,12 @@ public partial class MainWindow : Window
                 UpdateSegmentSummary();
                 
                 StatusText.Text = $"Project loaded: {System.IO.Path.GetFileName(openFileDialog.FileName)}";
+                
+                // Update tracking - project is now loaded and unmodified
+                currentProjectFilePath = openFileDialog.FileName;
+                hasUnsavedChanges = false;
+                UpdateWindowTitle();
+                
                 MessageBox.Show("Project loaded successfully!", "Load Complete", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -2031,7 +2148,8 @@ public partial class MainWindow : Window
     {
         using (var ms = new MemoryStream())
         {
-            var encoder = new PngBitmapEncoder();
+            var encoder = new JpegBitmapEncoder();
+            encoder.QualityLevel = 85; // Good balance between quality and file size
             encoder.Frames.Add(BitmapFrame.Create(bitmap));
             encoder.Save(ms);
             return Convert.ToBase64String(ms.ToArray());
@@ -2332,6 +2450,7 @@ public partial class MainWindow : Window
                 ElementLibraryComboBox.Items.Add(new ComboBoxItem { Content = element });
             }
             
+            MarkAsModified();
             StatusText.Text = $"Element library updated: {elementLibrary.Count} elements";
         }
     }
@@ -2405,6 +2524,7 @@ public partial class MainWindow : Window
                 {
                     segmentNames[segmentNumber] = textBox.Text.Trim();
                     UpdateSegmentLabels();
+                    MarkAsModified();
                     dialog.DialogResult = true;
                 }
             };
