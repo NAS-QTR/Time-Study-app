@@ -6,7 +6,8 @@
         xmlns:local="clr-namespace:VideoTimeStudy"
         mc:Ignorable="d"
         Title="Video Time Study Editor" Height="850" Width="1400" Background="#2D2D30"
-        WindowState="Maximized">
+        WindowState="Maximized"
+        Closing="Window_Closing">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -22,7 +23,8 @@
                 <MenuItem Header="_Open Video" Click="OpenVideo_Click" Foreground="Black"/>
                 <MenuItem Header="_Append Video" Click="AppendVideo_Click" Foreground="Black"/>
                 <Separator/>
-                <MenuItem Header="_Save Project" Click="SaveProject_Click" Foreground="Black"/>
+                <MenuItem Header="_Save Project" Click="SaveProject_Click" InputGestureText="Ctrl+S" Foreground="Black"/>
+                <MenuItem Header="Save Project _As..." Click="SaveProjectAs_Click" Foreground="Black"/>
                 <MenuItem Header="_Load Project" Click="LoadProject_Click" Foreground="Black"/>
                 <Separator/>
                 <MenuItem Header="_Import Data (CSV)" Click="ImportData_Click" Foreground="Black"/>
