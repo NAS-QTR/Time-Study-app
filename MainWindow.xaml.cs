@@ -500,6 +500,14 @@ public partial class MainWindow : Window
             return;
         }
         
+        // Ctrl+O: Open project
+        if (e.Key == Key.O && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            OpenProject_Click(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+        
         // Space bar: Play/Pause toggle
         if (e.Key == Key.Space && HasVideo)
         {
@@ -937,7 +945,9 @@ public partial class MainWindow : Window
                     : totalSeconds;
                 
                 double startX = startTime * effectivePixelsPerSecond;
-                double width = (endTime - startTime) * effectivePixelsPerSecond;
+                double width = Math.Max(0, (endTime - startTime) * effectivePixelsPerSecond);
+                
+                if (width <= 0) continue; // Skip zero-width segments
                 
                 // Draw clickable background for the entire segment (for scrubbing)
                 Rectangle clickableBackground = new Rectangle
@@ -1220,6 +1230,10 @@ public partial class MainWindow : Window
                 videoSegments.Clear();
                 cumulativeVideoTime = 0.0;
                 currentVideoIndex = 0;
+                timeStudyData.Clear();
+                currentProjectFilePath = null;
+                hasUnsavedChanges = false;
+                UpdateWindowTitle();
                 
                 currentVideoFileName = openFileDialog.FileName;
                 StatusText.Text = $"Loading: {System.IO.Path.GetFileName(openFileDialog.FileName)}...";
@@ -1273,6 +1287,8 @@ public partial class MainWindow : Window
                 cumulativeVideoTime += newVideoDuration;
                 
                 StatusText.Text = $"Appended: {System.IO.Path.GetFileName(appendedFile)} - Total duration: {TimeSpan.FromSeconds(cumulativeVideoTime):hh\\:mm\\:ss}";
+                
+                MarkAsModified();
                 
                 // Redraw timeline with new duration
                 DrawTimeRuler();
@@ -1928,6 +1944,10 @@ public partial class MainWindow : Window
                 UpdateTimeline();
                 UpdateVideoMarkers();
                 UpdateSegmentSummary();
+                // Clear project path so Ctrl+S won't overwrite a previously opened .vtsp
+                currentProjectFilePath = null;
+                UpdateWindowTitle();
+                
                 StatusText.Text = $"Imported {timeStudyData.Count} entries from {System.IO.Path.GetFileName(openFileDialog.FileName)}";
                 MessageBox.Show($"Successfully imported {timeStudyData.Count} entries!", "Import Complete", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -1969,7 +1989,7 @@ public partial class MainWindow : Window
 
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
-        Application.Current.Shutdown();
+        this.Close();
     }
 
     private void SaveProject_Click(object sender, RoutedEventArgs e)
@@ -2037,8 +2057,31 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LoadProject_Click(object sender, RoutedEventArgs e)
+    private void OpenProject_Click(object sender, RoutedEventArgs e)
     {
+        // Check for unsaved changes
+        if (hasUnsavedChanges)
+        {
+            var result = MessageBox.Show(
+                "You have unsaved changes. Do you want to save before opening a project?",
+                "Unsaved Changes",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                SaveProject_Click(this, new RoutedEventArgs());
+                if (hasUnsavedChanges)
+                {
+                    return;
+                }
+            }
+            else if (result == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+        }
+
         OpenFileDialog openFileDialog = new OpenFileDialog();
         openFileDialog.Filter = "Video Time Study Project (*.vtsp)|*.vtsp|All files (*.*)|*.*";
         
@@ -2239,76 +2282,6 @@ public partial class MainWindow : Window
 
 
     #region Keyboard Shortcuts
-
-    private void Window_KeyDown(object sender, KeyEventArgs e)
-    {
-        // Don't process shortcuts if typing in a text box
-        if (e.OriginalSource is TextBox || e.OriginalSource is ComboBox)
-            return;
-
-        switch (e.Key)
-        {
-            case Key.Space:
-                // Play/Pause - check if timer is running as proxy for playing state
-                if (VideoPlayer.Source != null)
-                {
-                    if (timer.IsEnabled)
-                        Pause_Click(this, new RoutedEventArgs());
-                    else
-                        Play_Click(this, new RoutedEventArgs());
-                }
-                e.Handled = true;
-                break;
-
-            case Key.M:
-                // Mark timestamp
-                if (VideoPlayer.Source != null)
-                {
-                    AddTimestamp_Click(this, new RoutedEventArgs());
-                }
-                e.Handled = true;
-                break;
-
-            case Key.Left:
-                // Rewind 5 seconds
-                if (VideoPlayer.Source != null)
-                {
-                    var newPos = CurrentPositionSeconds - 5;
-                    if (newPos < 0) newPos = 0;
-                    CurrentPositionSeconds = newPos;
-                }
-                e.Handled = true;
-                break;
-
-            case Key.Right:
-                // Forward 5 seconds
-                if (VideoPlayer.Source != null)
-                {
-                    var newPos = CurrentPositionSeconds + 5;
-                    if (newPos > cumulativeVideoTime) newPos = cumulativeVideoTime;
-                    CurrentPositionSeconds = newPos;
-                }
-                e.Handled = true;
-                break;
-
-
-
-
-
-            case Key.Delete:
-                // Delete selected timestamp
-                if (TimeStudyGrid.SelectedItem is TimeStudyEntry selectedEntry)
-                {
-                    timeStudyData.Remove(selectedEntry);
-                    UpdateTimeline();
-                    UpdateVideoMarkers();
-                    StatusText.Text = "Entry deleted";
-                }
-                e.Handled = true;
-                break;
-
-        }
-    }
 
     private void ShowKeyboardShortcuts_Click(object sender, RoutedEventArgs e)
     {
@@ -4528,6 +4501,14 @@ document.addEventListener('keydown', function(event) {{
         }
     }
 
+    private void TimeStudyGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction == DataGridEditAction.Commit)
+        {
+            MarkAsModified();
+        }
+    }
+
     private void AnnotationText_GotFocus(object sender, RoutedEventArgs e)
     {
         if (AnnotationText.Text == "Enter description for timestamp...")
@@ -4560,6 +4541,7 @@ document.addEventListener('keydown', function(event) {{
         if (TimeStudyGrid.SelectedItem is TimeStudyEntry entry)
         {
             entry.Description = AnnotationText.Text;
+            MarkAsModified();
         }
     }
 

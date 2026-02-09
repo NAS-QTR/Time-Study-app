@@ -25,7 +25,7 @@
                 <Separator/>
                 <MenuItem Header="_Save Project" Click="SaveProject_Click" InputGestureText="Ctrl+S" Foreground="Black"/>
                 <MenuItem Header="Save Project _As..." Click="SaveProjectAs_Click" Foreground="Black"/>
-                <MenuItem Header="_Load Project" Click="LoadProject_Click" Foreground="Black"/>
+                <MenuItem Header="_Open Project" Click="OpenProject_Click" InputGestureText="Ctrl+O" Foreground="Black"/>
                 <Separator/>
                 <MenuItem Header="_Import Data (CSV)" Click="ImportData_Click" Foreground="Black"/>
                 <Separator/>
@@ -298,6 +298,7 @@
                           BorderBrush="#3E3E42"
                           HeadersVisibility="Column"
                           SelectionChanged="TimeStudyGrid_SelectionChanged"
+                          CellEditEnding="TimeStudyGrid_CellEditEnding"
                           Margin="0">
                     <DataGrid.ColumnHeaderStyle>
                         <Style TargetType="DataGridColumnHeader">
