@@ -5,10 +5,234 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:VideoTimeStudy"
         mc:Ignorable="d"
-        Title="Video Time Study Editor" Height="850" Width="1400" Background="#2D2D30"
-        WindowState="Maximized">
+        Title="Video Time Study Editor" Height="850" Width="1400" Background="#1E1E1E"
+        WindowState="Maximized"
+        Closing="Window_Closing">
+    
+    <Window.Resources>
+        <!-- Shared button style for toolbar -->
+        <Style x:Key="ToolbarButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                Padding="{TemplateBinding Padding}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#3E3E42"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#505050"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Accent button style -->
+        <Style x:Key="AccentButton" TargetType="Button">
+            <Setter Property="Background" Value="#0E639C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                Padding="{TemplateBinding Padding}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1177BB"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#005A9E"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Danger button style -->
+        <Style x:Key="DangerButton" TargetType="Button">
+            <Setter Property="Background" Value="#6E2020"/>
+            <Setter Property="Foreground" Value="#FFCCCC"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                Padding="{TemplateBinding Padding}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#A1260D"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#8B1A06"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Playback control button -->
+        <Style x:Key="PlaybackButton" TargetType="Button">
+            <Setter Property="Background" Value="#333337"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                Padding="{TemplateBinding Padding}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#464649"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#007ACC"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#007ACC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Section label style -->
+        <Style x:Key="SectionLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#888888"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+
+        <!-- App-wide ComboBox style -->
+        <Style x:Key="AppComboBox" TargetType="ComboBox">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="#E6E6E6"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="MinWidth" Value="70"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="Border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="3"/>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          HorizontalContentAlignment="Right">
+                                <Path Data="M 0 0 L 4 4 L 8 0 Z" Fill="#CCCCCC" Margin="0,0,8,0"/>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Margin="6,2,24,2"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"/>
+                            <TextBox x:Name="PART_EditableTextBox"
+                                     Background="Transparent"
+                                     Foreground="{TemplateBinding Foreground}"
+                                     Margin="6,2,24,2"
+                                     VerticalAlignment="Center"
+                                     HorizontalContentAlignment="Left"
+                                     BorderThickness="0"
+                                     Visibility="Hidden"/>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border Background="#2D2D30"
+                                        BorderBrush="#3E3E42"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        SnapsToDevicePixels="True">
+                                    <ScrollViewer Margin="0" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AppComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="#E6E6E6"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#007ACC"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#007ACC"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="5"/>
@@ -17,13 +241,14 @@
         </Grid.RowDefinitions>
         
         <!-- Top Menu Bar -->
-        <Menu Grid.Row="0" Background="#2D2D30" Foreground="White">
+        <Menu Grid.Row="0" Background="#252526" Foreground="White" Padding="2">
             <MenuItem Header="_File" Foreground="White">
                 <MenuItem Header="_Open Video" Click="OpenVideo_Click" Foreground="Black"/>
                 <MenuItem Header="_Append Video" Click="AppendVideo_Click" Foreground="Black"/>
                 <Separator/>
-                <MenuItem Header="_Save Project" Click="SaveProject_Click" Foreground="Black"/>
-                <MenuItem Header="_Load Project" Click="LoadProject_Click" Foreground="Black"/>
+                <MenuItem Header="_Save Project" Click="SaveProject_Click" InputGestureText="Ctrl+S" Foreground="Black"/>
+                <MenuItem Header="Save Project _As..." Click="SaveProjectAs_Click" Foreground="Black"/>
+                <MenuItem Header="_Open Project" Click="OpenProject_Click" InputGestureText="Ctrl+O" Foreground="Black"/>
                 <Separator/>
                 <MenuItem Header="_Import Data (CSV)" Click="ImportData_Click" Foreground="Black"/>
                 <Separator/>
@@ -54,8 +279,43 @@
             </MenuItem>
         </Menu>
         
+        <!-- Quick Action Toolbar -->
+        <Border Grid.Row="1" Background="#2D2D30" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Padding="6,3">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Left: Primary Actions -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Content="📂 Open Video" Click="OpenVideo_Click" Style="{StaticResource ToolbarButton}" 
+                            ToolTip="Open a video file" Margin="0,0,2,0"/>
+                    <Button Content="📁 Open Project" Click="OpenProject_Click" Style="{StaticResource ToolbarButton}" 
+                            ToolTip="Open a saved project (Ctrl+O)" Margin="0,0,2,0"/>
+                    <Rectangle Width="1" Fill="#3E3E42" Margin="6,2"/>
+                    <Button Content="💾 Save" Click="SaveProject_Click" Style="{StaticResource ToolbarButton}" 
+                            ToolTip="Save project (Ctrl+S)" Margin="0,0,2,0"/>
+                    <Button Content="💾 Save As" Click="SaveProjectAs_Click" Style="{StaticResource ToolbarButton}" 
+                            ToolTip="Save project to new file" Margin="0,0,2,0"/>
+                    <Rectangle Width="1" Fill="#3E3E42" Margin="6,2"/>
+                    <Button Content="📤 Export CSV" Click="ExportData_Click" Style="{StaticResource ToolbarButton}" 
+                            ToolTip="Export data as CSV" Margin="0,0,2,0"/>
+                    <Button Content="📊 Report" Click="GenerateReport_Click" Style="{StaticResource ToolbarButton}" 
+                            ToolTip="Generate HTML report" Margin="0,0,2,0"/>
+                </StackPanel>
+                
+                <!-- Right: Help -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="⌨ Shortcuts" Click="ShowKeyboardShortcuts_Click" Style="{StaticResource ToolbarButton}" 
+                            ToolTip="View keyboard shortcuts"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
         <!-- Main Content Area -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="5"/>
@@ -71,7 +331,17 @@
                 </Grid.RowDefinitions>
                 
                 <!-- Video Player -->
-                <Border x:Name="VideoBorder" Grid.Row="0" BorderBrush="#3E3E42" BorderThickness="1" Background="Black" Margin="5" ClipToBounds="True">
+                <Border x:Name="VideoBorder" Grid.Row="0" BorderBrush="#3E3E42" BorderThickness="1" Background="Black" Margin="5,5,5,2" ClipToBounds="True"
+                    SizeChanged="VideoBorder_SizeChanged">
+                    <!-- Empty state overlay -->
+                    <Border.Resources>
+                        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+                    </Border.Resources>
+                    <Grid>
+                    <TextBlock x:Name="VideoEmptyState" Text="Open a video file to begin your time study" 
+                               Foreground="#666666" FontSize="16" FontStyle="Italic"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Panel.ZIndex="1" IsHitTestVisible="False"/>
                     <ScrollViewer x:Name="VideoScrollViewer"
                                   ClipToBounds="True"
                                   HorizontalScrollBarVisibility="Auto"
@@ -94,129 +364,181 @@
                             <Canvas x:Name="MarkerCanvas" Width="3648" Height="2052" Background="Transparent" IsHitTestVisible="False"/>
                         </Grid>
                     </ScrollViewer>
+                    <Canvas x:Name="DrawOverlayCanvas" Background="Transparent"
+                            MouseLeftButtonDown="DrawOverlayCanvas_MouseLeftButtonDown"
+                            MouseMove="DrawOverlayCanvas_MouseMove"
+                            MouseLeftButtonUp="DrawOverlayCanvas_MouseLeftButtonUp"/>
+                    </Grid>
                 </Border>
                 
                 <!-- Playback Controls Bar -->
-                <Border Grid.Row="1" Background="#252526" Padding="10,5">
+                <Border Grid.Row="1" Background="#252526" Padding="8,4" BorderBrush="#3E3E42" BorderThickness="0,1,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         
-                        <!-- Left: Play Controls -->
+                        <!-- Group 1: Transport Controls -->
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button x:Name="PlayButton" Content="▶" Width="40" Height="35" Margin="2" 
-                                    Click="Play_Click" Background="#0E639C" Foreground="White" FontSize="16" FontWeight="Bold"
-                                    ToolTip="Play (Space)"/>
-                            <Button x:Name="PauseButton" Content="⏸" Width="40" Height="35" Margin="2" 
-                                    Click="Pause_Click" Background="#3E3E42" Foreground="White" FontSize="16"
-                                    ToolTip="Pause (Space)"/>
-                            <Button x:Name="StopButton" Content="⏹" Width="40" Height="35" Margin="2" 
-                                    Click="Stop_Click" Background="#3E3E42" Foreground="White" FontSize="16"
-                                    ToolTip="Stop"/>
+                            <StackPanel Margin="0,0,4,0">
+                                <TextBlock Text="PLAYBACK" Style="{StaticResource SectionLabel}"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="PlayButton" Content="▶" Width="38" Height="32" Margin="1" 
+                                            Click="Play_Click" Style="{StaticResource AccentButton}" FontSize="14" FontWeight="Bold"
+                                            ToolTip="Play (Space)"/>
+                                    <Button x:Name="PauseButton" Content="⏸" Width="38" Height="32" Margin="1" 
+                                            Click="Pause_Click" Style="{StaticResource PlaybackButton}" FontSize="14"
+                                            ToolTip="Pause (Space)"/>
+                                    <Button x:Name="StopButton" Content="⏹" Width="38" Height="32" Margin="1" 
+                                            Click="Stop_Click" Style="{StaticResource PlaybackButton}" FontSize="14"
+                                            ToolTip="Stop"/>
+                                </StackPanel>
+                            </StackPanel>
                             
-                            <Separator Margin="5,0" Background="Transparent" Width="1"/>
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="8,2"/>
                             
-                            <!-- Frame Step Controls -->
-                            <Button x:Name="PrevFrameButton" Content="◀|" Width="45" Height="35" Margin="2" 
-                                    Click="PrevFrame_Click" Background="#3E3E42" Foreground="White" FontSize="12" FontWeight="Bold"
-                                    ToolTip="Previous Frame (,)"/>
-                            <Button x:Name="NextFrameButton" Content="|▶" Width="45" Height="35" Margin="2" 
-                                    Click="NextFrame_Click" Background="#3E3E42" Foreground="White" FontSize="12" FontWeight="Bold"
-                                    ToolTip="Next Frame (.)"/>
+                            <StackPanel Margin="4,0">
+                                <TextBlock Text="STEP" Style="{StaticResource SectionLabel}"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="PrevFrameButton" Content="◀|" Width="38" Height="32" Margin="1" 
+                                            Click="PrevFrame_Click" Style="{StaticResource PlaybackButton}" FontSize="11" FontWeight="Bold"
+                                            ToolTip="Previous Frame (,)"/>
+                                    <Button x:Name="NextFrameButton" Content="|▶" Width="38" Height="32" Margin="1" 
+                                            Click="NextFrame_Click" Style="{StaticResource PlaybackButton}" FontSize="11" FontWeight="Bold"
+                                            ToolTip="Next Frame (.)"/>
+                                    <Button x:Name="Rewind10Button" Content="⏪10s" Width="50" Height="32" Margin="1" 
+                                            Click="Rewind10_Click" Style="{StaticResource PlaybackButton}" FontSize="10" FontWeight="Bold"
+                                            ToolTip="Rewind 10 seconds (A)"/>
+                                    <Button x:Name="Forward10Button" Content="10s⏩" Width="50" Height="32" Margin="1" 
+                                            Click="Forward10_Click" Style="{StaticResource PlaybackButton}" FontSize="10" FontWeight="Bold"
+                                            ToolTip="Fast forward 10 seconds (D)"/>
+                                </StackPanel>
+                            </StackPanel>
                             
-                            <Separator Margin="5,0" Background="Transparent" Width="1"/>
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="8,2"/>
                             
-                            <Button x:Name="Rewind10Button" Content="⏪ 10s" Width="60" Height="35" Margin="2" 
-                                    Click="Rewind10_Click" Background="#3E3E42" Foreground="White" FontSize="11" FontWeight="Bold"
-                                    ToolTip="Rewind 10 seconds (A)"/>
-                            <Button x:Name="Forward10Button" Content="10s ⏩" Width="60" Height="35" Margin="2" 
-                                    Click="Forward10_Click" Background="#3E3E42" Foreground="White" FontSize="11" FontWeight="Bold"
-                                    ToolTip="Fast forward 10 seconds (D)"/>
-                            
-                            <StackPanel Orientation="Vertical" Margin="15,0,0,0">
+                            <!-- Time Display -->
+                            <StackPanel Margin="4,0" VerticalAlignment="Center">
                                 <TextBlock x:Name="CurrentTime" Text="00:00:00.00" 
-                                           Foreground="White" FontFamily="Consolas" FontSize="12" TextAlignment="Center"/>
+                                           Foreground="White" FontFamily="Consolas" FontSize="14" FontWeight="Bold" TextAlignment="Center"/>
                                 <TextBlock x:Name="FrameCounter" Text="Frame: 0" 
-                                           Foreground="#AAAAAA" FontFamily="Consolas" FontSize="9" TextAlignment="Center"/>
+                                           Foreground="#888888" FontFamily="Consolas" FontSize="9" TextAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
                         
-                        <!-- Center: Element Library and Add Marker -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <TextBlock Text="Element:" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13" FontWeight="SemiBold"/>
-                            <ComboBox x:Name="ElementLibraryComboBox" Width="80" Height="32" 
-                                      Background="#2D2D30" Foreground="#CCCCCC" BorderBrush="#007ACC" IsEditable="True" FontSize="12">
-                                <ComboBox.Resources>
-                                    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2D2D30"/>
-                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#007ACC"/>
-                                    <Style TargetType="{x:Type ComboBoxItem}">
-                                        <Setter Property="Foreground" Value="Black"/>
-                                        <Setter Property="Background" Value="White"/>
-                                        <Setter Property="FontSize" Value="12"/>
-                                    </Style>
-                                    <Style TargetType="{x:Type TextBox}">
-                                        <Setter Property="Foreground" Value="#CCCCCC"/>
-                                        <Setter Property="FontSize" Value="12"/>
-                                    </Style>
-                                </ComboBox.Resources>
-                            </ComboBox>
-                            <Button Content="➕ Mark" Click="AddTimestamp_Click" 
-                                    Width="80" Height="35" Margin="10,0,0,0"
-                                    Background="#0E639C" Foreground="White" FontWeight="Bold"
-                                    ToolTip="Add Timestamp (Ctrl+M)"/>
-                            <Button Content="S" Click="StartElement_Click" 
-                                    Width="30" Height="35" Margin="5,0,0,0"
-                                    Background="#2E7D32" Foreground="White" FontWeight="Bold"
-                                    ToolTip="Start Element (S)"/>
-                            <Button Content="E" Click="EndElement_Click" 
-                                    Width="30" Height="35" Margin="2,0,0,0"
-                                    Background="#D32F2F" Foreground="White" FontWeight="Bold"
-                                    ToolTip="End Element (E)"/>
+                        <!-- Group 2: Marking Controls -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="0,2,6,2"/>
+                            
+                            <StackPanel Margin="0,0,2,0">
+                                <TextBlock Text="MARKING" Style="{StaticResource SectionLabel}"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Element:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,3,0" FontSize="11"/>
+                                    <ComboBox x:Name="ElementLibraryComboBox" Width="110" Height="30" 
+                                          IsEditable="True" FontSize="11"
+                                          Style="{StaticResource AppComboBox}"
+                                          ItemContainerStyle="{StaticResource AppComboBoxItem}"/>
+                                    <Button Content="➕ Mark" Click="AddTimestamp_Click" 
+                                        Width="68" Height="32" Margin="4,0,0,0"
+                                        Style="{StaticResource AccentButton}" FontWeight="Bold" FontSize="11"
+                                        ToolTip="Add Timestamp (Ctrl+M)"/>
+                                    <Button Content="Start" Click="StartElement_Click" 
+                                        Width="42" Height="32" Margin="3,0,0,0"
+                                        Background="#2E7D32" Foreground="White" FontWeight="Bold" FontSize="11"
+                                        ToolTip="Start Element (S)">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="3" Padding="4,2">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#388E3C"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <Button Content="End" Click="EndElement_Click" 
+                                            Width="42" Height="32" Margin="2,0,0,0"
+                                            Background="#C62828" Foreground="White" FontWeight="Bold" FontSize="11"
+                                            ToolTip="End Element (E)">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="3" Padding="4,2">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#D32F2F"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
                         </StackPanel>
                         
-                        <!-- Right: Speed and Zoom -->
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock x:Name="SpeedRatioText" Text="Speed: 1.0x" Foreground="#4EC9B0" VerticalAlignment="Center" 
-                                       Margin="5,0" FontWeight="Bold" FontFamily="Consolas" FontSize="12"
-                                       ToolTip="Use Up/Down arrows or +/- to change speed"/>
-                            <ComboBox x:Name="SpeedComboBox" Width="70" SelectedIndex="3" 
-                                      SelectionChanged="SpeedComboBox_SelectionChanged" Background="#3E3E42" 
-                                      BorderBrush="#007ACC">
-                                <ComboBox.Resources>
-                                    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#3E3E42"/>
-                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#007ACC"/>
-                                    <Style TargetType="{x:Type ComboBoxItem}">
-                                        <Setter Property="Foreground" Value="Black"/>
-                                        <Setter Property="Background" Value="White"/>
-                                    </Style>
-                                    <Style TargetType="{x:Type TextBlock}">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </Style>
-                                </ComboBox.Resources>
-                                <ComboBoxItem Content="0.25x" Tag="0.25"/>
-                                <ComboBoxItem Content="0.5x" Tag="0.5"/>
-                                <ComboBoxItem Content="0.75x" Tag="0.75"/>
-                                <ComboBoxItem Content="1x" Tag="1"/>
-                                <ComboBoxItem Content="1.25x" Tag="1.25"/>
-                                <ComboBoxItem Content="1.5x" Tag="1.5"/>
-                                <ComboBoxItem Content="2x" Tag="2"/>
-                                <ComboBoxItem Content="4x" Tag="4"/>
-                                <ComboBoxItem Content="8x" Tag="8"/>
-                                <ComboBoxItem Content="16x" Tag="16"/>
-                                <ComboBoxItem Content="32x" Tag="32"/>
-                                <ComboBoxItem Content="64x" Tag="64"/>
-                            </ComboBox>
+                        <!-- Group 3: Speed and Zoom -->
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="0,2,8,2"/>
                             
-                            <TextBlock Text="Zoom:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="15,0,5,0"/>
-                            <Button Content="-" Width="30" Height="30" Click="ZoomOut_Click" 
-                                    Background="#3E3E42" Foreground="White" FontWeight="Bold" Margin="2"/>
-                            <TextBlock x:Name="ZoomLabel" Text="100%" Foreground="White" VerticalAlignment="Center" 
-                                       Width="45" TextAlignment="Center" FontFamily="Consolas" FontSize="11"/>
-                            <Button Content="+" Width="30" Height="30" Click="ZoomIn_Click" 
-                                    Background="#3E3E42" Foreground="White" FontWeight="Bold" Margin="2"/>
+                            <StackPanel Margin="0,0,3,0">
+                                <TextBlock Text="SPEED" Style="{StaticResource SectionLabel}"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <ComboBox x:Name="SpeedComboBox" Width="70" SelectedIndex="3" Height="30"
+                                              SelectionChanged="SpeedComboBox_SelectionChanged"
+                                              Style="{StaticResource AppComboBox}"
+                                              ItemContainerStyle="{StaticResource AppComboBoxItem}">
+                                        <ComboBoxItem Content="0.25x" Tag="0.25"/>
+                                        <ComboBoxItem Content="0.5x" Tag="0.5"/>
+                                        <ComboBoxItem Content="0.75x" Tag="0.75"/>
+                                        <ComboBoxItem Content="1x" Tag="1"/>
+                                        <ComboBoxItem Content="1.25x" Tag="1.25"/>
+                                        <ComboBoxItem Content="1.5x" Tag="1.5"/>
+                                        <ComboBoxItem Content="2x" Tag="2"/>
+                                        <ComboBoxItem Content="4x" Tag="4"/>
+                                        <ComboBoxItem Content="8x" Tag="8"/>
+                                        <ComboBoxItem Content="16x" Tag="16"/>
+                                        <ComboBoxItem Content="32x" Tag="32"/>
+                                        <ComboBoxItem Content="64x" Tag="64"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                            
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="3,2,6,2"/>
+                            
+                            <StackPanel>
+                                <TextBlock Text="ZOOM" Style="{StaticResource SectionLabel}"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="−" Width="28" Height="28" Click="ZoomOut_Click" 
+                                            Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="14" Margin="1"/>
+                                    <TextBlock x:Name="ZoomLabel" Text="100%" Foreground="White" VerticalAlignment="Center" 
+                                               Width="42" TextAlignment="Center" FontFamily="Consolas" FontSize="11"/>
+                                    <Button Content="+" Width="28" Height="28" Click="ZoomIn_Click" 
+                                            Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="14" Margin="1"/>
+                                    <Button Content="Fit" Width="32" Height="28" Click="ZoomToExtents_Click"
+                                            Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="10" Margin="2,1,1,1"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="6,2"/>
+
+                            <StackPanel>
+                                <TextBlock Text="DRAW" Style="{StaticResource SectionLabel}"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <ToggleButton x:Name="DrawBoxToggle" Content="Box" Width="40" Height="28"
+                                                  Click="DrawBoxToggle_Click"
+                                                  Background="#333337" Foreground="#CCCCCC"
+                                                  BorderBrush="#3E3E42" BorderThickness="1"/>
+                                    <Button x:Name="ClearBoxesButton" Content="Clear" Width="48" Height="28" Margin="4,0,0,0"
+                                            Click="ClearBoxes_Click" Style="{StaticResource PlaybackButton}" ToolTip="Clear drawn boxes"/>
+                                </StackPanel>
+                            </StackPanel>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -237,7 +559,8 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 
-                <Border Grid.Row="0" Background="#252526" Padding="10" Margin="0">
+                <!-- Panel Header -->
+                <Border Grid.Row="0" Background="#252526" Padding="10,8" BorderBrush="#3E3E42" BorderThickness="0,0,0,1">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -248,13 +571,14 @@
                                    Foreground="White" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
                             <Button Content="📊 Statistics" Click="ShowStatistics_Click" 
-                                    Width="90" Height="28" Margin="5,0" 
-                                    Background="#0E639C" Foreground="White" FontSize="11"
+                                    Style="{StaticResource ToolbarButton}"
+                                    Margin="5,0" FontSize="11"
                                     ToolTip="Show statistics panel"/>
                             <ToggleButton x:Name="TimeFormatToggle" Content="⏱ Decimal" 
                                           Click="ToggleTimeFormat_Click"
-                                          Width="80" Height="28" 
-                                          Background="#3E3E42" Foreground="White" FontSize="11"
+                                          Width="80" Height="26" 
+                                          Background="#333337" Foreground="#CCCCCC" FontSize="11"
+                                          BorderBrush="#3E3E42" BorderThickness="1"
                                           ToolTip="Toggle between HH:MM:SS and decimal hours"/>
                         </StackPanel>
                     </Grid>
@@ -288,49 +612,68 @@
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
                           CanUserDeleteRows="False"
-                          GridLinesVisibility="All"
-                          Background="#252526"
+                          GridLinesVisibility="Horizontal"
+                          Background="#1E1E1E"
                           Foreground="White"
-                          RowBackground="#2D2D30"
-                          AlternatingRowBackground="#252526"
+                          RowBackground="#252526"
+                          AlternatingRowBackground="#2A2A2D"
                           BorderBrush="#3E3E42"
+                          BorderThickness="0"
                           HeadersVisibility="Column"
                           SelectionChanged="TimeStudyGrid_SelectionChanged"
+                          CellEditEnding="TimeStudyGrid_CellEditEnding"
+                          RowHeight="28"
+                          AlternationCount="2"
                           Margin="0">
                     <DataGrid.ColumnHeaderStyle>
                         <Style TargetType="DataGridColumnHeader">
-                            <Setter Property="Background" Value="#007ACC"/>
-                            <Setter Property="Foreground" Value="White"/>
-                            <Setter Property="FontWeight" Value="Bold"/>
-                            <Setter Property="Padding" Value="5"/>
-                            <Setter Property="BorderBrush" Value="#005A9E"/>
+                            <Setter Property="Background" Value="#333337"/>
+                            <Setter Property="Foreground" Value="#CCCCCC"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="Padding" Value="8,6"/>
+                            <Setter Property="BorderBrush" Value="#3E3E42"/>
                             <Setter Property="BorderThickness" Value="0,0,1,1"/>
                         </Style>
                     </DataGrid.ColumnHeaderStyle>
                     <DataGrid.CellStyle>
                         <Style TargetType="DataGridCell">
-                            <Setter Property="Foreground" Value="White"/>
-                            <Setter Property="Background" Value="#1E1E1E"/>
-                            <Setter Property="BorderBrush" Value="#3E3E42"/>
+                            <Setter Property="Foreground" Value="#DDDDDD"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Padding" Value="4,2"/>
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#007ACC"/>
+                                    <Setter Property="Background" Value="#264F78"/>
                                     <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="BorderBrush" Value="#3794FF"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
                     </DataGrid.CellStyle>
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">
-                            <Setter Property="Foreground" Value="White"/>
-                            <Setter Property="Background" Value="#1E1E1E"/>
+                            <Setter Property="Foreground" Value="#DDDDDD"/>
+                            <Setter Property="Background" Value="#252526"/>
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
                                     <Setter Property="Background" Value="#264F78"/>
                                 </Trigger>
-                                <Trigger Property="AlternationIndex" Value="1">
-                                    <Setter Property="Background" Value="#252526"/>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#2A2D2E"/>
                                 </Trigger>
+                                <Trigger Property="AlternationIndex" Value="1">
+                                    <Setter Property="Background" Value="#2A2A2D"/>
+                                </Trigger>
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsSelected" Value="True"/>
+                                        <Condition Property="IsMouseOver" Value="True"/>
+                                    </MultiTrigger.Conditions>
+                                    <Setter Property="Background" Value="#2B5A8E"/>
+                                </MultiTrigger>
                             </Style.Triggers>
                         </Style>
                     </DataGrid.RowStyle>
@@ -382,32 +725,42 @@
                     </DataGrid.Columns>
                 </DataGrid>
                 
-                <GroupBox Grid.Row="4" Header="Description" Margin="5" 
-                          Background="#252526" Foreground="White" BorderBrush="#3E3E42">
-                    <TextBox x:Name="AnnotationText" Height="80" TextWrapping="Wrap" 
-                             AcceptsReturn="True" Margin="5"
-                             Text="Enter description for timestamp..." 
-                             Background="#1E1E1E" Foreground="White" BorderBrush="#3E3E42"
-                             FontSize="11" Padding="5"
-                             TextChanged="AnnotationText_TextChanged"
-                             GotFocus="AnnotationText_GotFocus" LostFocus="AnnotationText_LostFocus"/>
-                </GroupBox>
+                <!-- Description Panel -->
+                <Border Grid.Row="4" Background="#252526" Margin="0,2,0,0" Padding="8,6" BorderBrush="#3E3E42" BorderThickness="0,1,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="DESCRIPTION" Foreground="#888888" FontSize="10" FontWeight="SemiBold" Margin="2,0,0,4"/>
+                        <TextBox Grid.Row="1" x:Name="AnnotationText" Height="60" TextWrapping="Wrap" 
+                                 AcceptsReturn="True"
+                                 Text="Enter description for timestamp..." 
+                                 Background="#1E1E1E" Foreground="#666666" BorderBrush="#3E3E42"
+                                 FontSize="12" FontStyle="Italic" Padding="6,4"
+                                 BorderThickness="1"
+                                 TextChanged="AnnotationText_TextChanged"
+                                 GotFocus="AnnotationText_GotFocus" LostFocus="AnnotationText_LostFocus"/>
+                    </Grid>
+                </Border>
                 
-                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="5" HorizontalAlignment="Right">
-                    <Button Content="🗑️ Clear All" Click="ClearData_Click" Width="100" Height="30" 
-                            Margin="0,0,5,0" Background="#A1260D" Foreground="White" FontWeight="Bold"/>
-                    <Button Content="❌ Delete" Click="DeleteSelected_Click" Width="100" Height="30"
-                            Background="#505050" Foreground="White" FontWeight="Bold"/>
-                </StackPanel>
+                <Border Grid.Row="5" Background="#252526" Padding="8,5" BorderBrush="#3E3E42" BorderThickness="0,1,0,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="🗑 Clear All" Click="ClearData_Click" Width="90" Height="28" 
+                                Margin="0,0,6,0" Style="{StaticResource DangerButton}" FontWeight="SemiBold"/>
+                        <Button Content="✕ Delete" Click="DeleteSelected_Click" Width="80" Height="28"
+                                Style="{StaticResource PlaybackButton}" FontWeight="SemiBold" FontSize="11"/>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Grid>
         
         <!-- GridSplitter for resizing timeline -->
-        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" 
-                      Background="#3E3E42" ShowsPreview="False"/>
+        <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" 
+                      Background="#3E3E42" ShowsPreview="False" Cursor="SizeNS"/>
         
         <!-- Timeline Section (Bottom) -->
-        <Border Grid.Row="3" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,1,0,0">
+        <Border Grid.Row="4" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -425,27 +778,27 @@
                         
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <TextBlock Text="Timeline" Foreground="White" FontWeight="Bold" 
-                                       VerticalAlignment="Center" Margin="0,0,15,0" FontSize="14"/>
-                            <Button Content="−" Click="TimelineZoomOut_Click" Width="25" Height="25" 
-                                    Margin="2" Background="#3E3E42" Foreground="White" FontWeight="Bold"
+                                       VerticalAlignment="Center" Margin="0,0,12,0" FontSize="13"/>
+                            <Button Content="−" Click="TimelineZoomOut_Click" Width="24" Height="24" 
+                                    Margin="1" Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="12"
                                     ToolTip="Zoom Out Timeline"/>
                             <TextBlock x:Name="TimelineZoomLabel" Text="100%" VerticalAlignment="Center" 
-                                       Foreground="White" Margin="5,0" FontFamily="Consolas" MinWidth="50" TextAlignment="Center"
-                                       FontSize="12" FontWeight="Bold"/>
-                            <Button Content="+" Click="TimelineZoomIn_Click" Width="25" Height="25" 
-                                    Margin="2" Background="#3E3E42" Foreground="White" FontWeight="Bold"
+                                       Foreground="#CCCCCC" Margin="4,0" FontFamily="Consolas" MinWidth="45" TextAlignment="Center"
+                                       FontSize="11" FontWeight="SemiBold"/>
+                            <Button Content="+" Click="TimelineZoomIn_Click" Width="24" Height="24" 
+                                    Margin="1" Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="12"
                                     ToolTip="Zoom In Timeline"/>
-                            <Button Content="⊙" Click="TimelineZoomReset_Click" Width="25" Height="25" 
-                                    Margin="2" Background="#3E3E42" Foreground="White" FontWeight="Bold"
+                            <Button Content="⊙" Click="TimelineZoomReset_Click" Width="24" Height="24" 
+                                    Margin="1" Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="12"
                                     ToolTip="Reset Timeline Zoom"/>
-                            <Button Content="⊏⊐" Click="TimelineZoomFit_Click" Width="30" Height="25" 
-                                    Margin="2,2,10,2" Background="#3E3E42" Foreground="White" FontWeight="Bold"
+                            <Button Content="⊏⊐" Click="TimelineZoomFit_Click" Width="28" Height="24" 
+                                    Margin="1,1,8,1" Style="{StaticResource PlaybackButton}" FontWeight="Bold"
                                     FontSize="10" ToolTip="Fit Timeline to Window"/>
                         </StackPanel>
                         
                         <TextBlock Grid.Column="2" x:Name="TotalDuration" Text="Duration: 00:00:00" 
-                                   Foreground="White" VerticalAlignment="Center" 
-                                   FontFamily="Consolas" FontSize="11" FontWeight="Bold"/>
+                                   Foreground="#CCCCCC" VerticalAlignment="Center" 
+                                   FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"/>
                     </Grid>
                 </Border>
                 
@@ -565,6 +918,19 @@
                                     <TextBlock x:Name="Segment5Stats" Text="0 entries" Foreground="#CCC" FontSize="10" TextAlignment="Center" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Border>
+
+                            <!-- Segment 6 -->
+                            <Border x:Name="Segment6Label" Height="60" Background="#3E3E42" BorderBrush="#3E3E42" BorderThickness="0,0,1,1" Visibility="Collapsed">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Rename Segment" Click="RenameSegment_Click" Tag="6"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock x:Name="Segment6Text" Text="Seg 6" Foreground="#8A2BE2" FontSize="13" FontWeight="Bold" TextAlignment="Center"/>
+                                    <TextBlock x:Name="Segment6Stats" Text="0 entries" Foreground="#CCC" FontSize="10" TextAlignment="Center" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                     
@@ -632,6 +998,16 @@
                                         MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp">
                                 </Canvas>
                             </Border>
+
+                                <!-- Segment 6 Track -->
+                                <Border x:Name="Segment6Track" Height="60" Background="#1E1E1E" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Visibility="Collapsed"
+                                    MouseEnter="SegmentTrack_MouseEnter" MouseLeave="SegmentTrack_MouseLeave">
+                                <Canvas x:Name="Segment6Canvas" Background="Transparent" MinWidth="2000" Height="60"
+                                    MouseLeftButtonDown="TimelineCanvas_MouseLeftButtonDown"
+                                    MouseMove="TimelineCanvas_MouseMove"
+                                    MouseLeftButtonUp="TimelineCanvas_MouseLeftButtonUp">
+                                </Canvas>
+                                </Border>
                             
                             <!-- Hidden canvases for compatibility -->
                             <Canvas x:Name="TimelineCanvas" Visibility="Collapsed" />
@@ -643,9 +1019,16 @@
         </Border>
         
         <!-- Status Bar -->
-        <StatusBar Grid.Row="4" Background="#007ACC" Height="25">
+        <StatusBar Grid.Row="5" Background="#252526" Height="24" BorderBrush="#3E3E42" BorderThickness="0,1,0,0">
             <StatusBarItem>
-                <TextBlock x:Name="StatusText" Text="Ready" Foreground="White" FontWeight="Medium"/>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="#4EC9B0" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="StatusText" Text="Ready" Foreground="#CCCCCC" FontSize="11"/>
+                </StackPanel>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock x:Name="TimeFormatIndicator" Text="Time format: HH:MM:SS" 
+                           Foreground="#888888" FontSize="10"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

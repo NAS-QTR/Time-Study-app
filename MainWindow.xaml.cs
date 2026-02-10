@@ -48,8 +48,14 @@ public partial class MainWindow : Window
         { 2, "Seg 2" },
         { 3, "Seg 3" },
         { 4, "Seg 4" },
-        { 5, "Seg 5" }
+        { 5, "Seg 5" },
+        { 6, "Seg 6" }
     };
+    
+    // Save tracking
+    private bool hasUnsavedChanges = false;
+    private string? currentProjectFilePath = null;
+    private const string BaseWindowTitle = "Video Time Study Editor";
     
     // Pan and zoom fields
     private bool isPanning = false;
@@ -71,6 +77,33 @@ public partial class MainWindow : Window
     private Canvas? lastDraggedCanvas = null;
     private bool smoothingEnabled = true;
     private bool _isScrollSyncing = false; // Prevent scroll sync feedback loops
+
+    private enum SegmentDragMode
+    {
+        None,
+        Move,
+        ResizeStart,
+        ResizeEnd
+    }
+
+    private bool isSegmentDragActive = false;
+    private bool segmentDragMoved = false;
+    private SegmentDragMode segmentDragMode = SegmentDragMode.None;
+    private TimeStudyEntry? draggedEntry = null;
+    private TimeStudyEntry? draggedNextEntry = null;
+    private TimeStudyEntry? draggedPrevEntry = null;
+    private TimeStudyEntry? draggedNextNextEntry = null;
+    private double segmentDragStartMouseX = 0;
+    private double segmentDragStartTime = 0;
+    private double segmentDragEndTime = 0;
+    private DateTime lastSegmentDragUpdate = DateTime.MinValue;
+    private const double SegmentDragEdgeThreshold = 6.0;
+    private const double MinSegmentDurationSeconds = 0.1;
+
+    private bool isDrawModeEnabled = false;
+    private bool isDrawingBox = false;
+    private Point drawStartPoint;
+    private Rectangle? activeDrawRect = null;
     
     // Helper properties for MediaElement
     private bool HasVideo => VideoPlayer.Source != null && VideoPlayer.NaturalDuration.HasTimeSpan;
@@ -160,8 +193,13 @@ public partial class MainWindow : Window
         timeStudyData = new ObservableCollection<TimeStudyEntry>();
         TimeStudyGrid.ItemsSource = timeStudyData;
 
+        // Subscribe to collection changes for tracking modifications
+        timeStudyData.CollectionChanged += (s, e) => MarkAsModified();
+
         // Populate element library dropdown immediately
         PopulateElementLibrary();
+
+        DrawOverlayCanvas.IsHitTestVisible = false;
         
         // Setup timer for updating video position
         timer = new DispatcherTimer();
@@ -185,11 +223,60 @@ public partial class MainWindow : Window
         this.KeyDown += MainWindow_KeyDown;
         
         // Initialize placeholder text color
-        AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+        AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+        AnnotationText.FontStyle = FontStyles.Italic;
         
         // Initialize timeline
         Loaded += MainWindow_Loaded;
         
+        // Initialize window title
+        UpdateWindowTitle();
+    }
+
+    private void UpdateWindowTitle()
+    {
+        string fileName = !string.IsNullOrEmpty(currentProjectFilePath) 
+            ? System.IO.Path.GetFileName(currentProjectFilePath) 
+            : "Untitled";
+        string modifiedIndicator = hasUnsavedChanges ? "*" : "";
+        Title = $"{BaseWindowTitle} - {fileName}{modifiedIndicator}";
+    }
+
+    private void MarkAsModified()
+    {
+        if (!hasUnsavedChanges)
+        {
+            hasUnsavedChanges = true;
+            UpdateWindowTitle();
+        }
+    }
+
+    private void Window_Closing(object sender, CancelEventArgs e)
+    {
+        if (hasUnsavedChanges)
+        {
+            var result = MessageBox.Show(
+                "You have unsaved changes. Do you want to save before closing?",
+                "Unsaved Changes",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                // Try to save
+                SaveProject_Click(this, new RoutedEventArgs());
+                // If still unsaved (user cancelled save dialog), cancel close
+                if (hasUnsavedChanges)
+                {
+                    e.Cancel = true;
+                }
+            }
+            else if (result ==MessageBoxResult.Cancel)
+            {
+                e.Cancel = true;
+            }
+            // If No, allow close without saving
+        }
     }
 
     private void PopulateElementLibrary()
@@ -203,6 +290,7 @@ public partial class MainWindow : Window
         }
         System.Diagnostics.Debug.WriteLine($"ElementLibraryComboBox now has {ElementLibraryComboBox.Items.Count} items");
     }
+
 
     private void RecalculateDurations()
     {
@@ -358,6 +446,15 @@ public partial class MainWindow : Window
             var stat = segmentStats.First(s => s.Segment == 5);
             Segment5Stats.Text = $"{stat.Count} × {stat.AvgTime:F2}s avg\n∑ {stat.TotalTime:F1}s total";
         }
+
+        // Segment 6
+        Segment6Label.Visibility = activeSegments.Contains(6) ? Visibility.Visible : Visibility.Collapsed;
+        Segment6Track.Visibility = activeSegments.Contains(6) ? Visibility.Visible : Visibility.Collapsed;
+        if (activeSegments.Contains(6))
+        {
+            var stat = segmentStats.First(s => s.Segment == 6);
+            Segment6Stats.Text = $"{stat.Count} × {stat.AvgTime:F2}s avg\n∑ {stat.TotalTime:F1}s total";
+        }
         
         // Build summary text for status bar
         var summaryText = new System.Text.StringBuilder("Segment Totals: ");
@@ -427,12 +524,34 @@ public partial class MainWindow : Window
         ApplyZoom();
     }
 
+    private void ZoomToExtents_Click(object sender, RoutedEventArgs e)
+    {
+        FitVideoToWindow();
+        StatusText.Text = $"Zoom to extents: {currentZoom * 100:F0}%";
+    }
+
     // Enhanced Keyboard Shortcuts
     private void MainWindow_KeyDown(object sender, KeyEventArgs e)
     {
         // Ignore keyboard shortcuts when typing in a text field
         if (e.OriginalSource is TextBox || e.OriginalSource is ComboBox)
         {
+            return;
+        }
+        
+        // Ctrl+S: Save project
+        if (e.Key == Key.S && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            SaveProject_Click(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+        
+        // Ctrl+O: Open project
+        if (e.Key == Key.O && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            OpenProject_Click(this, new RoutedEventArgs());
+            e.Handled = true;
             return;
         }
         
@@ -547,6 +666,7 @@ public partial class MainWindow : Window
             else if (e.Key == Key.D3 || e.Key == Key.NumPad3) segmentNumber = 3;
             else if (e.Key == Key.D4 || e.Key == Key.NumPad4) segmentNumber = 4;
             else if (e.Key == Key.D5 || e.Key == Key.NumPad5) segmentNumber = 5;
+            else if (e.Key == Key.D6 || e.Key == Key.NumPad6) segmentNumber = 6;
 
             if (segmentNumber > 0)
             {
@@ -779,6 +899,7 @@ public partial class MainWindow : Window
         Segment3Canvas.Width = canvasWidth;
         Segment4Canvas.Width = canvasWidth;
         Segment5Canvas.Width = canvasWidth;
+        Segment6Canvas.Width = canvasWidth;
     }
     
     private void UpdateTimeline()
@@ -790,6 +911,7 @@ public partial class MainWindow : Window
         Segment3Canvas.Children.Clear();
         Segment4Canvas.Children.Clear();
         Segment5Canvas.Children.Clear();
+        Segment6Canvas.Children.Clear();
         
         if (!HasVideo)
             return;
@@ -802,7 +924,7 @@ public partial class MainWindow : Window
         double effectivePixelsPerSecond = timelinePixelsPerSecond * timelineZoom;
         
         // Add clickable backgrounds to all canvases for easy scrubbing
-        foreach (var canvas in new[] { Segment0Canvas, Segment1Canvas, Segment2Canvas, Segment3Canvas, Segment4Canvas, Segment5Canvas })
+        foreach (var canvas in new[] { Segment0Canvas, Segment1Canvas, Segment2Canvas, Segment3Canvas, Segment4Canvas, Segment5Canvas, Segment6Canvas })
         {
             Rectangle clickableBase = new Rectangle
             {
@@ -840,7 +962,8 @@ public partial class MainWindow : Window
             { 2, Color.FromRgb(30, 144, 255) },   // Blue  
             { 3, Color.FromRgb(255, 20, 147) },   // Pink
             { 4, Color.FromRgb(255, 215, 0) },    // Gold
-            { 5, Color.FromRgb(50, 205, 50) }     // Green
+            { 5, Color.FromRgb(50, 205, 50) },    // Green
+            { 6, Color.FromRgb(138, 43, 226) }    // Purple
         };
         
         // Group entries by segment
@@ -859,6 +982,7 @@ public partial class MainWindow : Window
                 3 => Segment3Canvas,
                 4 => Segment4Canvas,
                 5 => Segment5Canvas,
+                6 => Segment6Canvas,
                 _ => Segment0Canvas
             };
             
@@ -873,7 +997,9 @@ public partial class MainWindow : Window
                     : totalSeconds;
                 
                 double startX = startTime * effectivePixelsPerSecond;
-                double width = (endTime - startTime) * effectivePixelsPerSecond;
+                double width = Math.Max(0, (endTime - startTime) * effectivePixelsPerSecond);
+                
+                if (width <= 0) continue; // Skip zero-width segments
                 
                 // Draw clickable background for the entire segment (for scrubbing)
                 Rectangle clickableBackground = new Rectangle
@@ -884,7 +1010,10 @@ public partial class MainWindow : Window
                     Cursor = Cursors.Hand,
                     Tag = entries[i]
                 };
-                clickableBackground.MouseLeftButtonDown += SegmentBar_Click;
+                clickableBackground.MouseLeftButtonDown += SegmentBar_MouseLeftButtonDown;
+                clickableBackground.MouseMove += SegmentBar_MouseMove;
+                clickableBackground.MouseLeftButtonUp += SegmentBar_MouseLeftButtonUp;
+                clickableBackground.ContextMenu = CreateEntryContextMenu(entries[i]);
                 Canvas.SetLeft(clickableBackground, startX);
                 Canvas.SetTop(clickableBackground, 0);
                 targetCanvas.Children.Add(clickableBackground);
@@ -1121,6 +1250,30 @@ public partial class MainWindow : Window
 
     private void OpenVideo_Click(object sender, RoutedEventArgs e)
     {
+        // Check for unsaved changes
+        if (hasUnsavedChanges)
+        {
+            var result = MessageBox.Show(
+                "You have unsaved changes. Do you want to save before opening a new video?",
+                "Unsaved Changes",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                SaveProject_Click(this, new RoutedEventArgs());
+                // If still unsaved (user cancelled save dialog), cancel open
+                if (hasUnsavedChanges)
+                {
+                    return;
+                }
+            }
+            else if (result == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+        }
+        
         OpenFileDialog openFileDialog = new OpenFileDialog();
         openFileDialog.Filter = "Video files (*.mp4;*.avi;*.mkv;*.wmv)|*.mp4;*.avi;*.mkv;*.wmv|All files (*.*)|*.*";
         
@@ -1132,6 +1285,10 @@ public partial class MainWindow : Window
                 videoSegments.Clear();
                 cumulativeVideoTime = 0.0;
                 currentVideoIndex = 0;
+                timeStudyData.Clear();
+                currentProjectFilePath = null;
+                hasUnsavedChanges = false;
+                UpdateWindowTitle();
                 
                 currentVideoFileName = openFileDialog.FileName;
                 StatusText.Text = $"Loading: {System.IO.Path.GetFileName(openFileDialog.FileName)}...";
@@ -1139,6 +1296,9 @@ public partial class MainWindow : Window
                 VideoPlayer.MediaOpened += VideoPlayer_MediaOpened;
                 VideoPlayer.Source = new Uri(openFileDialog.FileName);
                 VideoPlayer.Play();
+                
+                // Hide empty state
+                VideoEmptyState.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
@@ -1185,6 +1345,8 @@ public partial class MainWindow : Window
                 cumulativeVideoTime += newVideoDuration;
                 
                 StatusText.Text = $"Appended: {System.IO.Path.GetFileName(appendedFile)} - Total duration: {TimeSpan.FromSeconds(cumulativeVideoTime):hh\\:mm\\:ss}";
+                
+                MarkAsModified();
                 
                 // Redraw timeline with new duration
                 DrawTimeRuler();
@@ -1501,9 +1663,6 @@ public partial class MainWindow : Window
             {
                 VideoPlayer.SpeedRatio = currentSpeedRatio;
                 
-                // Update speed display
-                SpeedRatioText.Text = $"Speed: {currentSpeedRatio}x";
-                
                 // Adjust quality based on speed when playing
                 if (timer.IsEnabled)
                 {
@@ -1600,7 +1759,8 @@ public partial class MainWindow : Window
             
             // Reset description field to placeholder
             AnnotationText.Text = "Enter description for timestamp...";
-            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            AnnotationText.FontStyle = FontStyles.Italic;
             StatusText.Text = $"Added entry at {entry.Timestamp}";
             
             // Batch updates
@@ -1664,7 +1824,8 @@ public partial class MainWindow : Window
             
             // Reset description field to placeholder
             AnnotationText.Text = "Enter description for timestamp...";
-            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            AnnotationText.FontStyle = FontStyles.Italic;
             StatusText.Text = $"Added entry at {entry.Timestamp} (Segment {segmentNumber})";
             
             UpdateTimelineAndMarkers();
@@ -1840,6 +2001,10 @@ public partial class MainWindow : Window
                 UpdateTimeline();
                 UpdateVideoMarkers();
                 UpdateSegmentSummary();
+                // Clear project path so Ctrl+S won't overwrite a previously opened .vtsp
+                currentProjectFilePath = null;
+                UpdateWindowTitle();
+                
                 StatusText.Text = $"Imported {timeStudyData.Count} entries from {System.IO.Path.GetFileName(openFileDialog.FileName)}";
                 MessageBox.Show($"Successfully imported {timeStudyData.Count} entries!", "Import Complete", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -1881,10 +2046,23 @@ public partial class MainWindow : Window
 
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
-        Application.Current.Shutdown();
+        this.Close();
     }
 
     private void SaveProject_Click(object sender, RoutedEventArgs e)
+    {
+        // Quick save - use existing file path or prompt if new
+        if (!string.IsNullOrEmpty(currentProjectFilePath))
+        {
+            SaveProjectToFile(currentProjectFilePath);
+        }
+        else
+        {
+            SaveProjectAs_Click(sender, e);
+        }
+    }
+
+    private void SaveProjectAs_Click(object sender, RoutedEventArgs e)
     {
         SaveFileDialog saveFileDialog = new SaveFileDialog();
         saveFileDialog.Filter = "Video Time Study Project (*.vtsp)|*.vtsp|All files (*.*)|*.*";
@@ -1892,42 +2070,75 @@ public partial class MainWindow : Window
         
         if (saveFileDialog.ShowDialog() == true)
         {
-            try
-            {
-                var projectData = new ProjectData
-                {
-                    VideoSegments = videoSegments,
-                    TimeStudyEntries = timeStudyData.Select(e => new TimeStudyEntryData
-                    {
-                        Timestamp = e.Timestamp,
-                        TimeInSeconds = e.TimeInSeconds,
-                        ElementName = e.ElementName,
-                        Description = e.Description,
-                        Observations = e.Observations,
-                        People = e.People,
-                        Category = e.Category,
-                        Segment = e.Segment,
-                        ThumbnailBase64 = e.ThumbnailImage != null ? BitmapToBase64(e.ThumbnailImage) : null
-                    }).ToList(),
-                    SegmentNames = segmentNames,
-                    ElementLibrary = elementLibrary
-                };
-                
-                string json = JsonSerializer.Serialize(projectData, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(saveFileDialog.FileName, json);
-                
-                StatusText.Text = $"Project saved: {System.IO.Path.GetFileName(saveFileDialog.FileName)}";
-                MessageBox.Show("Project saved successfully!", "Save Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error saving project: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            SaveProjectToFile(saveFileDialog.FileName);
         }
     }
 
-    private void LoadProject_Click(object sender, RoutedEventArgs e)
+    private void SaveProjectToFile(string filePath)
     {
+        try
+        {
+            var projectData = new ProjectData
+            {
+                VideoSegments = videoSegments,
+                TimeStudyEntries = timeStudyData.Select(e => new TimeStudyEntryData
+                {
+                    Timestamp = e.Timestamp,
+                    TimeInSeconds = e.TimeInSeconds,
+                    ElementName = e.ElementName,
+                    Description = e.Description,
+                    Observations = e.Observations,
+                    People = e.People,
+                    Category = e.Category,
+                    Segment = e.Segment,
+                    ThumbnailBase64 = e.ThumbnailImage != null ? BitmapToBase64(e.ThumbnailImage) : null
+                }).ToList(),
+                SegmentNames = segmentNames,
+                ElementLibrary = elementLibrary
+            };
+            
+            string json = JsonSerializer.Serialize(projectData, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(filePath, json);
+            
+            // Update tracking
+            currentProjectFilePath = filePath;
+            hasUnsavedChanges = false;
+            UpdateWindowTitle();
+            
+            StatusText.Text = $"Project saved: {System.IO.Path.GetFileName(filePath)}";
+            MessageBox.Show("Project saved successfully!", "Save Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error saving project: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OpenProject_Click(object sender, RoutedEventArgs e)
+    {
+        // Check for unsaved changes
+        if (hasUnsavedChanges)
+        {
+            var result = MessageBox.Show(
+                "You have unsaved changes. Do you want to save before opening a project?",
+                "Unsaved Changes",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                SaveProject_Click(this, new RoutedEventArgs());
+                if (hasUnsavedChanges)
+                {
+                    return;
+                }
+            }
+            else if (result == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+        }
+
         OpenFileDialog openFileDialog = new OpenFileDialog();
         openFileDialog.Filter = "Video Time Study Project (*.vtsp)|*.vtsp|All files (*.*)|*.*";
         
@@ -1954,9 +2165,12 @@ public partial class MainWindow : Window
                     currentVideoFileName = videoSegments[0].FilePath;
                     if (File.Exists(currentVideoFileName))
                     {
+                        // Hide empty state watermark
+                        VideoEmptyState.Visibility = Visibility.Collapsed;
+                        
+                        VideoPlayer.MediaOpened += VideoPlayer_MediaOpened;
                         VideoPlayer.Source = new Uri(currentVideoFileName);
                         VideoPlayer.Play();
-                        VideoPlayer.MediaOpened += (s, args) => VideoPlayer.Pause();
                     }
                     else
                     {
@@ -2018,6 +2232,12 @@ public partial class MainWindow : Window
                 UpdateSegmentSummary();
                 
                 StatusText.Text = $"Project loaded: {System.IO.Path.GetFileName(openFileDialog.FileName)}";
+                
+                // Update tracking - project is now loaded and unmodified
+                currentProjectFilePath = openFileDialog.FileName;
+                hasUnsavedChanges = false;
+                UpdateWindowTitle();
+                
                 MessageBox.Show("Project loaded successfully!", "Load Complete", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -2031,7 +2251,8 @@ public partial class MainWindow : Window
     {
         using (var ms = new MemoryStream())
         {
-            var encoder = new PngBitmapEncoder();
+            var encoder = new JpegBitmapEncoder();
+            encoder.QualityLevel = 85; // Good balance between quality and file size
             encoder.Frames.Add(BitmapFrame.Create(bitmap));
             encoder.Save(ms);
             return Convert.ToBase64String(ms.ToArray());
@@ -2122,76 +2343,6 @@ public partial class MainWindow : Window
 
     #region Keyboard Shortcuts
 
-    private void Window_KeyDown(object sender, KeyEventArgs e)
-    {
-        // Don't process shortcuts if typing in a text box
-        if (e.OriginalSource is TextBox || e.OriginalSource is ComboBox)
-            return;
-
-        switch (e.Key)
-        {
-            case Key.Space:
-                // Play/Pause - check if timer is running as proxy for playing state
-                if (VideoPlayer.Source != null)
-                {
-                    if (timer.IsEnabled)
-                        Pause_Click(this, new RoutedEventArgs());
-                    else
-                        Play_Click(this, new RoutedEventArgs());
-                }
-                e.Handled = true;
-                break;
-
-            case Key.M:
-                // Mark timestamp
-                if (VideoPlayer.Source != null)
-                {
-                    AddTimestamp_Click(this, new RoutedEventArgs());
-                }
-                e.Handled = true;
-                break;
-
-            case Key.Left:
-                // Rewind 5 seconds
-                if (VideoPlayer.Source != null)
-                {
-                    var newPos = CurrentPositionSeconds - 5;
-                    if (newPos < 0) newPos = 0;
-                    CurrentPositionSeconds = newPos;
-                }
-                e.Handled = true;
-                break;
-
-            case Key.Right:
-                // Forward 5 seconds
-                if (VideoPlayer.Source != null)
-                {
-                    var newPos = CurrentPositionSeconds + 5;
-                    if (newPos > cumulativeVideoTime) newPos = cumulativeVideoTime;
-                    CurrentPositionSeconds = newPos;
-                }
-                e.Handled = true;
-                break;
-
-
-
-
-
-            case Key.Delete:
-                // Delete selected timestamp
-                if (TimeStudyGrid.SelectedItem is TimeStudyEntry selectedEntry)
-                {
-                    timeStudyData.Remove(selectedEntry);
-                    UpdateTimeline();
-                    UpdateVideoMarkers();
-                    StatusText.Text = "Entry deleted";
-                }
-                e.Handled = true;
-                break;
-
-        }
-    }
-
     private void ShowKeyboardShortcuts_Click(object sender, RoutedEventArgs e)
     {
         var helpWindow = new Window
@@ -2242,7 +2393,7 @@ public partial class MainWindow : Window
             ("M  or  Ctrl+M", "Mark timestamp at current time"),
             ("S", "Start element"),
             ("E", "End element"),
-            ("1, 2, 3, 4, 5", "Add timestamp with segment number"),
+            ("1, 2, 3, 4, 5, 6", "Add timestamp with segment number"),
             ("Shift+1 to 5", "Add 'Away/Waiting' marker"),
             ("", ""),
             ("EDITING", ""),
@@ -2332,6 +2483,7 @@ public partial class MainWindow : Window
                 ElementLibraryComboBox.Items.Add(new ComboBoxItem { Content = element });
             }
             
+            MarkAsModified();
             StatusText.Text = $"Element library updated: {elementLibrary.Count} elements";
         }
     }
@@ -2405,6 +2557,7 @@ public partial class MainWindow : Window
                 {
                     segmentNames[segmentNumber] = textBox.Text.Trim();
                     UpdateSegmentLabels();
+                    MarkAsModified();
                     dialog.DialogResult = true;
                 }
             };
@@ -2440,6 +2593,7 @@ public partial class MainWindow : Window
         if (segmentNames.ContainsKey(3)) Segment3Text.Text = segmentNames[3];
         if (segmentNames.ContainsKey(4)) Segment4Text.Text = segmentNames[4];
         if (segmentNames.ContainsKey(5)) Segment5Text.Text = segmentNames[5];
+        if (segmentNames.ContainsKey(6)) Segment6Text.Text = segmentNames[6];
     }
 
     // Export to Excel (XML format, no external dependencies)
@@ -4393,18 +4547,29 @@ document.addEventListener('keydown', function(event) {{
             if (string.IsNullOrWhiteSpace(entry.Description))
             {
                 AnnotationText.Text = "Enter description for timestamp...";
-                AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+                AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+                AnnotationText.FontStyle = FontStyles.Italic;
             }
             else
             {
                 AnnotationText.Text = entry.Description;
                 AnnotationText.Foreground = Brushes.White;
+                AnnotationText.FontStyle = FontStyles.Normal;
             }
         }
         else
         {
             AnnotationText.Text = "Enter description for timestamp...";
-            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            AnnotationText.FontStyle = FontStyles.Italic;
+        }
+    }
+
+    private void TimeStudyGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction == DataGridEditAction.Commit)
+        {
+            MarkAsModified();
         }
     }
 
@@ -4414,6 +4579,7 @@ document.addEventListener('keydown', function(event) {{
         {
             AnnotationText.Text = "";
             AnnotationText.Foreground = Brushes.White;
+            AnnotationText.FontStyle = FontStyles.Normal;
         }
     }
 
@@ -4422,7 +4588,8 @@ document.addEventListener('keydown', function(event) {{
         if (string.IsNullOrWhiteSpace(AnnotationText.Text))
         {
             AnnotationText.Text = "Enter description for timestamp...";
-            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            AnnotationText.FontStyle = FontStyles.Italic;
         }
     }
 
@@ -4433,13 +4600,14 @@ document.addEventListener('keydown', function(event) {{
             return;
             
         if (AnnotationText.Foreground is SolidColorBrush brush && 
-            brush.Color == Color.FromRgb(150, 150, 150))
+            brush.Color == Color.FromRgb(102, 102, 102))
             return;
         
         // Save description to selected entry
         if (TimeStudyGrid.SelectedItem is TimeStudyEntry entry)
         {
             entry.Description = AnnotationText.Text;
+            MarkAsModified();
         }
     }
 
@@ -4510,6 +4678,11 @@ document.addEventListener('keydown', function(event) {{
     
     private void VideoScrollViewer_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        if (isDrawModeEnabled)
+        {
+            return;
+        }
+
         isPanning = true;
         panStartPoint = e.GetPosition(VideoScrollViewer);
         horizontalOffsetStart = VideoScrollViewer.HorizontalOffset;
@@ -4545,6 +4718,80 @@ document.addEventListener('keydown', function(event) {{
         }
     }
 
+    private void VideoBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        DrawOverlayCanvas.Width = VideoBorder.ActualWidth;
+        DrawOverlayCanvas.Height = VideoBorder.ActualHeight;
+    }
+
+    private void DrawBoxToggle_Click(object sender, RoutedEventArgs e)
+    {
+        isDrawModeEnabled = DrawBoxToggle.IsChecked == true;
+        DrawOverlayCanvas.Cursor = isDrawModeEnabled ? Cursors.Cross : Cursors.Arrow;
+        DrawOverlayCanvas.IsHitTestVisible = isDrawModeEnabled;
+        StatusText.Text = isDrawModeEnabled ? "Draw mode enabled" : "Draw mode disabled";
+    }
+
+    private void DrawOverlayCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!isDrawModeEnabled)
+            return;
+
+        isDrawingBox = true;
+        drawStartPoint = e.GetPosition(DrawOverlayCanvas);
+
+        activeDrawRect = new Rectangle
+        {
+            Stroke = Brushes.Red,
+            StrokeThickness = 2,
+            Fill = Brushes.Transparent
+        };
+
+        Canvas.SetLeft(activeDrawRect, drawStartPoint.X);
+        Canvas.SetTop(activeDrawRect, drawStartPoint.Y);
+        DrawOverlayCanvas.Children.Add(activeDrawRect);
+        DrawOverlayCanvas.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void DrawOverlayCanvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!isDrawModeEnabled || !isDrawingBox || activeDrawRect == null)
+            return;
+
+        Point currentPoint = e.GetPosition(DrawOverlayCanvas);
+        double x = Math.Min(currentPoint.X, drawStartPoint.X);
+        double y = Math.Min(currentPoint.Y, drawStartPoint.Y);
+        double width = Math.Abs(currentPoint.X - drawStartPoint.X);
+        double height = Math.Abs(currentPoint.Y - drawStartPoint.Y);
+
+        Canvas.SetLeft(activeDrawRect, x);
+        Canvas.SetTop(activeDrawRect, y);
+        activeDrawRect.Width = width;
+        activeDrawRect.Height = height;
+        e.Handled = true;
+    }
+
+    private void DrawOverlayCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!isDrawModeEnabled)
+            return;
+
+        isDrawingBox = false;
+        activeDrawRect = null;
+        DrawOverlayCanvas.ReleaseMouseCapture();
+        e.Handled = true;
+    }
+
+    private void ClearBoxes_Click(object sender, RoutedEventArgs e)
+    {
+        DrawOverlayCanvas.Children.Clear();
+        isDrawingBox = false;
+        activeDrawRect = null;
+        DrawOverlayCanvas.ReleaseMouseCapture();
+        StatusText.Text = "Cleared drawn boxes";
+    }
+
 
 
     private void MarkerDot_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -4575,11 +4822,207 @@ document.addEventListener('keydown', function(event) {{
     {
         if (sender is FrameworkElement element && element.Tag is TimeStudyEntry entry && HasVideo)
         {
-            TimeSpan timestamp = TimeSpan.Parse(entry.Timestamp);
-            CurrentPositionSeconds = timestamp.TotalSeconds;
-            UpdateTimeline();
-            StatusText.Text = $"Playing segment: {entry.ElementName ?? entry.Timestamp}";
+            JumpToEntry(entry);
             e.Handled = true;
+        }
+    }
+
+    private void JumpToEntry(TimeStudyEntry entry)
+    {
+        if (!HasVideo)
+            return;
+
+        TimeSpan timestamp = TimeSpan.Parse(entry.Timestamp);
+        CurrentPositionSeconds = timestamp.TotalSeconds;
+        UpdateTimeline();
+        StatusText.Text = $"Playing segment: {entry.ElementName ?? entry.Timestamp}";
+    }
+
+    private ContextMenu CreateEntryContextMenu(TimeStudyEntry entry)
+    {
+        var menu = new ContextMenu();
+        var deleteItem = new MenuItem { Header = "Delete Timestamp" };
+        deleteItem.Click += (s, e) => DeleteTimeStudyEntry(entry);
+        menu.Items.Add(deleteItem);
+        return menu;
+    }
+
+    private void DeleteTimeStudyEntry(TimeStudyEntry entry)
+    {
+        if (!timeStudyData.Contains(entry))
+            return;
+
+        timeStudyData.Remove(entry);
+        RecalculateDurations();
+        UpdateTimelineAndMarkers();
+        MarkAsModified();
+        StatusText.Text = "Timestamp deleted";
+    }
+
+    private void SegmentBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element || element.Tag is not TimeStudyEntry entry)
+            return;
+
+        if (!HasVideo)
+            return;
+
+        Canvas? canvas = FindVisualParent<Canvas>(element);
+        if (canvas == null)
+            return;
+
+        double effectivePixelsPerSecond = timelinePixelsPerSecond * timelineZoom;
+        Point clickPos = e.GetPosition(canvas);
+
+        // Build segment-local entry list
+        var segmentEntries = timeStudyData
+            .Where(e => e.Segment == entry.Segment)
+            .OrderBy(e => TimeSpan.Parse(e.Timestamp))
+            .ToList();
+
+        int index = segmentEntries.IndexOf(entry);
+        if (index < 0)
+            return;
+
+        draggedEntry = entry;
+        draggedPrevEntry = index > 0 ? segmentEntries[index - 1] : null;
+        draggedNextEntry = index < segmentEntries.Count - 1 ? segmentEntries[index + 1] : null;
+        draggedNextNextEntry = index < segmentEntries.Count - 2 ? segmentEntries[index + 2] : null;
+
+        segmentDragStartTime = TimeSpan.Parse(entry.Timestamp).TotalSeconds;
+        segmentDragEndTime = draggedNextEntry != null
+            ? TimeSpan.Parse(draggedNextEntry.Timestamp).TotalSeconds
+            : VideoDurationSeconds;
+
+        double startX = segmentDragStartTime * effectivePixelsPerSecond;
+        double endX = segmentDragEndTime * effectivePixelsPerSecond;
+
+        segmentDragStartMouseX = clickPos.X;
+        isSegmentDragActive = true;
+        segmentDragMoved = false;
+
+        // Determine drag mode based on edge proximity
+        if (draggedNextEntry != null && Math.Abs(clickPos.X - startX) <= SegmentDragEdgeThreshold)
+        {
+            segmentDragMode = SegmentDragMode.ResizeStart;
+        }
+        else if (draggedNextEntry != null && Math.Abs(endX - clickPos.X) <= SegmentDragEdgeThreshold)
+        {
+            segmentDragMode = SegmentDragMode.ResizeEnd;
+        }
+        else
+        {
+            segmentDragMode = draggedNextEntry != null ? SegmentDragMode.Move : SegmentDragMode.ResizeStart;
+        }
+
+        element.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void SegmentBar_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!isSegmentDragActive || draggedEntry == null)
+            return;
+
+        if (sender is not FrameworkElement element)
+            return;
+
+        Canvas? canvas = FindVisualParent<Canvas>(element);
+        if (canvas == null)
+            return;
+
+        double effectivePixelsPerSecond = timelinePixelsPerSecond * timelineZoom;
+        Point currentPos = e.GetPosition(canvas);
+        double timeAtMouse = currentPos.X / effectivePixelsPerSecond;
+
+        double prevTime = draggedPrevEntry != null ? TimeSpan.Parse(draggedPrevEntry.Timestamp).TotalSeconds : 0;
+        double nextNextTime = draggedNextNextEntry != null
+            ? TimeSpan.Parse(draggedNextNextEntry.Timestamp).TotalSeconds
+            : VideoDurationSeconds;
+
+        if (segmentDragMode == SegmentDragMode.Move && draggedNextEntry != null)
+        {
+            double duration = segmentDragEndTime - segmentDragStartTime;
+            double delta = (currentPos.X - segmentDragStartMouseX) / effectivePixelsPerSecond;
+            double newStart = segmentDragStartTime + delta;
+            double maxStart = Math.Max(prevTime + MinSegmentDurationSeconds, nextNextTime - duration - MinSegmentDurationSeconds);
+            double minStart = prevTime + MinSegmentDurationSeconds;
+            newStart = Math.Max(minStart, Math.Min(maxStart, newStart));
+            double newEnd = newStart + duration;
+
+            draggedEntry.Timestamp = TimeSpan.FromSeconds(newStart).ToString(@"hh\:mm\:ss");
+            draggedNextEntry.Timestamp = TimeSpan.FromSeconds(newEnd).ToString(@"hh\:mm\:ss");
+            segmentDragMoved = true;
+        }
+        else if (segmentDragMode == SegmentDragMode.ResizeStart)
+        {
+            double maxStart = segmentDragEndTime - MinSegmentDurationSeconds;
+            double newStart = Math.Max(prevTime + MinSegmentDurationSeconds, Math.Min(maxStart, timeAtMouse));
+            draggedEntry.Timestamp = TimeSpan.FromSeconds(newStart).ToString(@"hh\:mm\:ss");
+            segmentDragMoved = true;
+        }
+        else if (segmentDragMode == SegmentDragMode.ResizeEnd && draggedNextEntry != null)
+        {
+            double minEnd = segmentDragStartTime + MinSegmentDurationSeconds;
+            double maxEnd = Math.Max(minEnd, nextNextTime - MinSegmentDurationSeconds);
+            double newEnd = Math.Max(minEnd, Math.Min(maxEnd, timeAtMouse));
+            draggedNextEntry.Timestamp = TimeSpan.FromSeconds(newEnd).ToString(@"hh\:mm\:ss");
+            segmentDragMoved = true;
+        }
+
+        if ((DateTime.Now - lastSegmentDragUpdate).TotalMilliseconds > 50)
+        {
+            UpdateTimeline();
+            lastSegmentDragUpdate = DateTime.Now;
+        }
+
+        e.Handled = true;
+    }
+
+    private void SegmentBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!isSegmentDragActive)
+            return;
+
+        if (sender is FrameworkElement element)
+        {
+            element.ReleaseMouseCapture();
+        }
+
+        isSegmentDragActive = false;
+        segmentDragMode = SegmentDragMode.None;
+
+        SortTimeStudyDataByTimestamp();
+        RecalculateDurations();
+        UpdateTimelineAndMarkers();
+        MarkAsModified();
+
+        if (!segmentDragMoved && draggedEntry != null)
+        {
+            JumpToEntry(draggedEntry);
+        }
+
+        draggedEntry = null;
+        draggedNextEntry = null;
+        draggedPrevEntry = null;
+        draggedNextNextEntry = null;
+
+        e.Handled = true;
+    }
+
+    private void SortTimeStudyDataByTimestamp()
+    {
+        var selected = TimeStudyGrid.SelectedItem as TimeStudyEntry;
+        var ordered = timeStudyData.OrderBy(e => TimeSpan.Parse(e.Timestamp)).ToList();
+        timeStudyData.Clear();
+        foreach (var entry in ordered)
+        {
+            timeStudyData.Add(entry);
+        }
+
+        if (selected != null)
+        {
+            TimeStudyGrid.SelectedItem = selected;
         }
     }
 
@@ -4687,6 +5130,9 @@ document.addEventListener('keydown', function(event) {{
             UpdateStatistics();
         }
         
+        TimeFormatIndicator.Text = useDecimalTimeFormat 
+            ? "Time format: Decimal hours" 
+            : "Time format: HH:MM:SS";
         StatusText.Text = useDecimalTimeFormat 
             ? "Time format: Decimal hours" 
             : "Time format: HH:MM:SS";
