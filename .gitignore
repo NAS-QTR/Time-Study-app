@@ -3,6 +3,7 @@ bin/
 obj/
 [Dd]ebug/
 [Rr]elease/
+PublishOutput/
 
 # Visual Studio cache/options
 .vs/
@@ -26,7 +27,12 @@ Releases/
 # Temporary files
 *.tmp
 *.bak
+*.log
 
 # OS files
 Thumbs.db
 .DS_Store
+
+# IDE
+*.swp
+*~

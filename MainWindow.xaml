@@ -430,23 +430,23 @@
                         </StackPanel>
                         
                         <!-- Group 2: Marking Controls -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
-                            <Rectangle Width="1" Fill="#3E3E42" Margin="0,2,8,2"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="0,2,6,2"/>
                             
-                            <StackPanel Margin="0,0,4,0">
+                            <StackPanel Margin="0,0,2,0">
                                 <TextBlock Text="MARKING" Style="{StaticResource SectionLabel}"/>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Element:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11"/>
-                                    <ComboBox x:Name="ElementLibraryComboBox" Width="140" Height="30" 
-                                          IsEditable="True" FontSize="12"
+                                    <TextBlock Text="Element:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,3,0" FontSize="11"/>
+                                    <ComboBox x:Name="ElementLibraryComboBox" Width="110" Height="30" 
+                                          IsEditable="True" FontSize="11"
                                           Style="{StaticResource AppComboBox}"
                                           ItemContainerStyle="{StaticResource AppComboBoxItem}"/>
                                     <Button Content="➕ Mark" Click="AddTimestamp_Click" 
-                                        Width="72" Height="32" Margin="6,0,0,0"
+                                        Width="68" Height="32" Margin="4,0,0,0"
                                         Style="{StaticResource AccentButton}" FontWeight="Bold" FontSize="11"
                                         ToolTip="Add Timestamp (Ctrl+M)"/>
                                     <Button Content="Start" Click="StartElement_Click" 
-                                        Width="42" Height="32" Margin="4,0,0,0"
+                                        Width="42" Height="32" Margin="3,0,0,0"
                                         Background="#2E7D32" Foreground="White" FontWeight="Bold" FontSize="11"
                                         ToolTip="Start Element (S)">
                                         <Button.Template>
@@ -487,13 +487,10 @@
                         <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                             <Rectangle Width="1" Fill="#3E3E42" Margin="0,2,8,2"/>
                             
-                            <StackPanel Margin="0,0,6,0">
+                            <StackPanel Margin="0,0,3,0">
                                 <TextBlock Text="SPEED" Style="{StaticResource SectionLabel}"/>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock x:Name="SpeedRatioText" Text="1.0x" Foreground="#4EC9B0" VerticalAlignment="Center" 
-                                               Margin="0,0,4,0" FontWeight="Bold" FontFamily="Consolas" FontSize="13" MinWidth="35"
-                                               ToolTip="Use Up/Down arrows or +/- to change speed"/>
-                                    <ComboBox x:Name="SpeedComboBox" Width="80" SelectedIndex="3" Height="30"
+                                    <ComboBox x:Name="SpeedComboBox" Width="70" SelectedIndex="3" Height="30"
                                               SelectionChanged="SpeedComboBox_SelectionChanged"
                                               Style="{StaticResource AppComboBox}"
                                               ItemContainerStyle="{StaticResource AppComboBoxItem}">
@@ -513,7 +510,7 @@
                                 </StackPanel>
                             </StackPanel>
                             
-                            <Rectangle Width="1" Fill="#3E3E42" Margin="4,2,8,2"/>
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="3,2,6,2"/>
                             
                             <StackPanel>
                                 <TextBlock Text="ZOOM" Style="{StaticResource SectionLabel}"/>
@@ -524,12 +521,12 @@
                                                Width="42" TextAlignment="Center" FontFamily="Consolas" FontSize="11"/>
                                     <Button Content="+" Width="28" Height="28" Click="ZoomIn_Click" 
                                             Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="14" Margin="1"/>
-                                    <Button Content="Fit" Width="36" Height="28" Click="ZoomToExtents_Click"
-                                            Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="11" Margin="4,1,1,1"/>
+                                    <Button Content="Fit" Width="32" Height="28" Click="ZoomToExtents_Click"
+                                            Style="{StaticResource PlaybackButton}" FontWeight="Bold" FontSize="10" Margin="2,1,1,1"/>
                                 </StackPanel>
                             </StackPanel>
 
-                            <Rectangle Width="1" Fill="#3E3E42" Margin="8,2"/>
+                            <Rectangle Width="1" Fill="#3E3E42" Margin="6,2"/>
 
                             <StackPanel>
                                 <TextBlock Text="DRAW" Style="{StaticResource SectionLabel}"/>
@@ -538,7 +535,7 @@
                                                   Click="DrawBoxToggle_Click"
                                                   Background="#333337" Foreground="#CCCCCC"
                                                   BorderBrush="#3E3E42" BorderThickness="1"/>
-                                    <Button x:Name="ClearBoxesButton" Content="Clear" Width="50" Height="28" Margin="6,0,0,0"
+                                    <Button x:Name="ClearBoxesButton" Content="Clear" Width="48" Height="28" Margin="4,0,0,0"
                                             Click="ClearBoxes_Click" Style="{StaticResource PlaybackButton}" ToolTip="Clear drawn boxes"/>
                                 </StackPanel>
                             </StackPanel>

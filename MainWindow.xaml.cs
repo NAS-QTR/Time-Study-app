@@ -1663,9 +1663,6 @@ public partial class MainWindow : Window
             {
                 VideoPlayer.SpeedRatio = currentSpeedRatio;
                 
-                // Update speed display
-                SpeedRatioText.Text = $"{currentSpeedRatio}x";
-                
                 // Adjust quality based on speed when playing
                 if (timer.IsEnabled)
                 {
@@ -2168,9 +2165,12 @@ public partial class MainWindow : Window
                     currentVideoFileName = videoSegments[0].FilePath;
                     if (File.Exists(currentVideoFileName))
                     {
+                        // Hide empty state watermark
+                        VideoEmptyState.Visibility = Visibility.Collapsed;
+                        
+                        VideoPlayer.MediaOpened += VideoPlayer_MediaOpened;
                         VideoPlayer.Source = new Uri(currentVideoFileName);
                         VideoPlayer.Play();
-                        VideoPlayer.MediaOpened += (s, args) => VideoPlayer.Pause();
                     }
                     else
                     {
