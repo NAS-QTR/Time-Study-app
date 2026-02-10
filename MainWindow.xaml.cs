@@ -48,7 +48,8 @@ public partial class MainWindow : Window
         { 2, "Seg 2" },
         { 3, "Seg 3" },
         { 4, "Seg 4" },
-        { 5, "Seg 5" }
+        { 5, "Seg 5" },
+        { 6, "Seg 6" }
     };
     
     // Save tracking
@@ -76,6 +77,33 @@ public partial class MainWindow : Window
     private Canvas? lastDraggedCanvas = null;
     private bool smoothingEnabled = true;
     private bool _isScrollSyncing = false; // Prevent scroll sync feedback loops
+
+    private enum SegmentDragMode
+    {
+        None,
+        Move,
+        ResizeStart,
+        ResizeEnd
+    }
+
+    private bool isSegmentDragActive = false;
+    private bool segmentDragMoved = false;
+    private SegmentDragMode segmentDragMode = SegmentDragMode.None;
+    private TimeStudyEntry? draggedEntry = null;
+    private TimeStudyEntry? draggedNextEntry = null;
+    private TimeStudyEntry? draggedPrevEntry = null;
+    private TimeStudyEntry? draggedNextNextEntry = null;
+    private double segmentDragStartMouseX = 0;
+    private double segmentDragStartTime = 0;
+    private double segmentDragEndTime = 0;
+    private DateTime lastSegmentDragUpdate = DateTime.MinValue;
+    private const double SegmentDragEdgeThreshold = 6.0;
+    private const double MinSegmentDurationSeconds = 0.1;
+
+    private bool isDrawModeEnabled = false;
+    private bool isDrawingBox = false;
+    private Point drawStartPoint;
+    private Rectangle? activeDrawRect = null;
     
     // Helper properties for MediaElement
     private bool HasVideo => VideoPlayer.Source != null && VideoPlayer.NaturalDuration.HasTimeSpan;
@@ -170,6 +198,8 @@ public partial class MainWindow : Window
 
         // Populate element library dropdown immediately
         PopulateElementLibrary();
+
+        DrawOverlayCanvas.IsHitTestVisible = false;
         
         // Setup timer for updating video position
         timer = new DispatcherTimer();
@@ -193,7 +223,8 @@ public partial class MainWindow : Window
         this.KeyDown += MainWindow_KeyDown;
         
         // Initialize placeholder text color
-        AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+        AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+        AnnotationText.FontStyle = FontStyles.Italic;
         
         // Initialize timeline
         Loaded += MainWindow_Loaded;
@@ -259,6 +290,7 @@ public partial class MainWindow : Window
         }
         System.Diagnostics.Debug.WriteLine($"ElementLibraryComboBox now has {ElementLibraryComboBox.Items.Count} items");
     }
+
 
     private void RecalculateDurations()
     {
@@ -414,6 +446,15 @@ public partial class MainWindow : Window
             var stat = segmentStats.First(s => s.Segment == 5);
             Segment5Stats.Text = $"{stat.Count} × {stat.AvgTime:F2}s avg\n∑ {stat.TotalTime:F1}s total";
         }
+
+        // Segment 6
+        Segment6Label.Visibility = activeSegments.Contains(6) ? Visibility.Visible : Visibility.Collapsed;
+        Segment6Track.Visibility = activeSegments.Contains(6) ? Visibility.Visible : Visibility.Collapsed;
+        if (activeSegments.Contains(6))
+        {
+            var stat = segmentStats.First(s => s.Segment == 6);
+            Segment6Stats.Text = $"{stat.Count} × {stat.AvgTime:F2}s avg\n∑ {stat.TotalTime:F1}s total";
+        }
         
         // Build summary text for status bar
         var summaryText = new System.Text.StringBuilder("Segment Totals: ");
@@ -481,6 +522,12 @@ public partial class MainWindow : Window
         currentZoom = Math.Max(0.1, Math.Min(4.0, currentZoom)); // Clamp between 0.1x and 4x
         
         ApplyZoom();
+    }
+
+    private void ZoomToExtents_Click(object sender, RoutedEventArgs e)
+    {
+        FitVideoToWindow();
+        StatusText.Text = $"Zoom to extents: {currentZoom * 100:F0}%";
     }
 
     // Enhanced Keyboard Shortcuts
@@ -619,6 +666,7 @@ public partial class MainWindow : Window
             else if (e.Key == Key.D3 || e.Key == Key.NumPad3) segmentNumber = 3;
             else if (e.Key == Key.D4 || e.Key == Key.NumPad4) segmentNumber = 4;
             else if (e.Key == Key.D5 || e.Key == Key.NumPad5) segmentNumber = 5;
+            else if (e.Key == Key.D6 || e.Key == Key.NumPad6) segmentNumber = 6;
 
             if (segmentNumber > 0)
             {
@@ -851,6 +899,7 @@ public partial class MainWindow : Window
         Segment3Canvas.Width = canvasWidth;
         Segment4Canvas.Width = canvasWidth;
         Segment5Canvas.Width = canvasWidth;
+        Segment6Canvas.Width = canvasWidth;
     }
     
     private void UpdateTimeline()
@@ -862,6 +911,7 @@ public partial class MainWindow : Window
         Segment3Canvas.Children.Clear();
         Segment4Canvas.Children.Clear();
         Segment5Canvas.Children.Clear();
+        Segment6Canvas.Children.Clear();
         
         if (!HasVideo)
             return;
@@ -874,7 +924,7 @@ public partial class MainWindow : Window
         double effectivePixelsPerSecond = timelinePixelsPerSecond * timelineZoom;
         
         // Add clickable backgrounds to all canvases for easy scrubbing
-        foreach (var canvas in new[] { Segment0Canvas, Segment1Canvas, Segment2Canvas, Segment3Canvas, Segment4Canvas, Segment5Canvas })
+        foreach (var canvas in new[] { Segment0Canvas, Segment1Canvas, Segment2Canvas, Segment3Canvas, Segment4Canvas, Segment5Canvas, Segment6Canvas })
         {
             Rectangle clickableBase = new Rectangle
             {
@@ -912,7 +962,8 @@ public partial class MainWindow : Window
             { 2, Color.FromRgb(30, 144, 255) },   // Blue  
             { 3, Color.FromRgb(255, 20, 147) },   // Pink
             { 4, Color.FromRgb(255, 215, 0) },    // Gold
-            { 5, Color.FromRgb(50, 205, 50) }     // Green
+            { 5, Color.FromRgb(50, 205, 50) },    // Green
+            { 6, Color.FromRgb(138, 43, 226) }    // Purple
         };
         
         // Group entries by segment
@@ -931,6 +982,7 @@ public partial class MainWindow : Window
                 3 => Segment3Canvas,
                 4 => Segment4Canvas,
                 5 => Segment5Canvas,
+                6 => Segment6Canvas,
                 _ => Segment0Canvas
             };
             
@@ -958,7 +1010,10 @@ public partial class MainWindow : Window
                     Cursor = Cursors.Hand,
                     Tag = entries[i]
                 };
-                clickableBackground.MouseLeftButtonDown += SegmentBar_Click;
+                clickableBackground.MouseLeftButtonDown += SegmentBar_MouseLeftButtonDown;
+                clickableBackground.MouseMove += SegmentBar_MouseMove;
+                clickableBackground.MouseLeftButtonUp += SegmentBar_MouseLeftButtonUp;
+                clickableBackground.ContextMenu = CreateEntryContextMenu(entries[i]);
                 Canvas.SetLeft(clickableBackground, startX);
                 Canvas.SetTop(clickableBackground, 0);
                 targetCanvas.Children.Add(clickableBackground);
@@ -1241,6 +1296,9 @@ public partial class MainWindow : Window
                 VideoPlayer.MediaOpened += VideoPlayer_MediaOpened;
                 VideoPlayer.Source = new Uri(openFileDialog.FileName);
                 VideoPlayer.Play();
+                
+                // Hide empty state
+                VideoEmptyState.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
@@ -1606,7 +1664,7 @@ public partial class MainWindow : Window
                 VideoPlayer.SpeedRatio = currentSpeedRatio;
                 
                 // Update speed display
-                SpeedRatioText.Text = $"Speed: {currentSpeedRatio}x";
+                SpeedRatioText.Text = $"{currentSpeedRatio}x";
                 
                 // Adjust quality based on speed when playing
                 if (timer.IsEnabled)
@@ -1704,7 +1762,8 @@ public partial class MainWindow : Window
             
             // Reset description field to placeholder
             AnnotationText.Text = "Enter description for timestamp...";
-            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            AnnotationText.FontStyle = FontStyles.Italic;
             StatusText.Text = $"Added entry at {entry.Timestamp}";
             
             // Batch updates
@@ -1768,7 +1827,8 @@ public partial class MainWindow : Window
             
             // Reset description field to placeholder
             AnnotationText.Text = "Enter description for timestamp...";
-            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            AnnotationText.FontStyle = FontStyles.Italic;
             StatusText.Text = $"Added entry at {entry.Timestamp} (Segment {segmentNumber})";
             
             UpdateTimelineAndMarkers();
@@ -2333,7 +2393,7 @@ public partial class MainWindow : Window
             ("M  or  Ctrl+M", "Mark timestamp at current time"),
             ("S", "Start element"),
             ("E", "End element"),
-            ("1, 2, 3, 4, 5", "Add timestamp with segment number"),
+            ("1, 2, 3, 4, 5, 6", "Add timestamp with segment number"),
             ("Shift+1 to 5", "Add 'Away/Waiting' marker"),
             ("", ""),
             ("EDITING", ""),
@@ -2533,6 +2593,7 @@ public partial class MainWindow : Window
         if (segmentNames.ContainsKey(3)) Segment3Text.Text = segmentNames[3];
         if (segmentNames.ContainsKey(4)) Segment4Text.Text = segmentNames[4];
         if (segmentNames.ContainsKey(5)) Segment5Text.Text = segmentNames[5];
+        if (segmentNames.ContainsKey(6)) Segment6Text.Text = segmentNames[6];
     }
 
     // Export to Excel (XML format, no external dependencies)
@@ -4486,18 +4547,21 @@ document.addEventListener('keydown', function(event) {{
             if (string.IsNullOrWhiteSpace(entry.Description))
             {
                 AnnotationText.Text = "Enter description for timestamp...";
-                AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+                AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+                AnnotationText.FontStyle = FontStyles.Italic;
             }
             else
             {
                 AnnotationText.Text = entry.Description;
                 AnnotationText.Foreground = Brushes.White;
+                AnnotationText.FontStyle = FontStyles.Normal;
             }
         }
         else
         {
             AnnotationText.Text = "Enter description for timestamp...";
-            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            AnnotationText.FontStyle = FontStyles.Italic;
         }
     }
 
@@ -4515,6 +4579,7 @@ document.addEventListener('keydown', function(event) {{
         {
             AnnotationText.Text = "";
             AnnotationText.Foreground = Brushes.White;
+            AnnotationText.FontStyle = FontStyles.Normal;
         }
     }
 
@@ -4523,7 +4588,8 @@ document.addEventListener('keydown', function(event) {{
         if (string.IsNullOrWhiteSpace(AnnotationText.Text))
         {
             AnnotationText.Text = "Enter description for timestamp...";
-            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AnnotationText.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            AnnotationText.FontStyle = FontStyles.Italic;
         }
     }
 
@@ -4534,7 +4600,7 @@ document.addEventListener('keydown', function(event) {{
             return;
             
         if (AnnotationText.Foreground is SolidColorBrush brush && 
-            brush.Color == Color.FromRgb(150, 150, 150))
+            brush.Color == Color.FromRgb(102, 102, 102))
             return;
         
         // Save description to selected entry
@@ -4612,6 +4678,11 @@ document.addEventListener('keydown', function(event) {{
     
     private void VideoScrollViewer_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        if (isDrawModeEnabled)
+        {
+            return;
+        }
+
         isPanning = true;
         panStartPoint = e.GetPosition(VideoScrollViewer);
         horizontalOffsetStart = VideoScrollViewer.HorizontalOffset;
@@ -4647,6 +4718,80 @@ document.addEventListener('keydown', function(event) {{
         }
     }
 
+    private void VideoBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        DrawOverlayCanvas.Width = VideoBorder.ActualWidth;
+        DrawOverlayCanvas.Height = VideoBorder.ActualHeight;
+    }
+
+    private void DrawBoxToggle_Click(object sender, RoutedEventArgs e)
+    {
+        isDrawModeEnabled = DrawBoxToggle.IsChecked == true;
+        DrawOverlayCanvas.Cursor = isDrawModeEnabled ? Cursors.Cross : Cursors.Arrow;
+        DrawOverlayCanvas.IsHitTestVisible = isDrawModeEnabled;
+        StatusText.Text = isDrawModeEnabled ? "Draw mode enabled" : "Draw mode disabled";
+    }
+
+    private void DrawOverlayCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!isDrawModeEnabled)
+            return;
+
+        isDrawingBox = true;
+        drawStartPoint = e.GetPosition(DrawOverlayCanvas);
+
+        activeDrawRect = new Rectangle
+        {
+            Stroke = Brushes.Red,
+            StrokeThickness = 2,
+            Fill = Brushes.Transparent
+        };
+
+        Canvas.SetLeft(activeDrawRect, drawStartPoint.X);
+        Canvas.SetTop(activeDrawRect, drawStartPoint.Y);
+        DrawOverlayCanvas.Children.Add(activeDrawRect);
+        DrawOverlayCanvas.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void DrawOverlayCanvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!isDrawModeEnabled || !isDrawingBox || activeDrawRect == null)
+            return;
+
+        Point currentPoint = e.GetPosition(DrawOverlayCanvas);
+        double x = Math.Min(currentPoint.X, drawStartPoint.X);
+        double y = Math.Min(currentPoint.Y, drawStartPoint.Y);
+        double width = Math.Abs(currentPoint.X - drawStartPoint.X);
+        double height = Math.Abs(currentPoint.Y - drawStartPoint.Y);
+
+        Canvas.SetLeft(activeDrawRect, x);
+        Canvas.SetTop(activeDrawRect, y);
+        activeDrawRect.Width = width;
+        activeDrawRect.Height = height;
+        e.Handled = true;
+    }
+
+    private void DrawOverlayCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!isDrawModeEnabled)
+            return;
+
+        isDrawingBox = false;
+        activeDrawRect = null;
+        DrawOverlayCanvas.ReleaseMouseCapture();
+        e.Handled = true;
+    }
+
+    private void ClearBoxes_Click(object sender, RoutedEventArgs e)
+    {
+        DrawOverlayCanvas.Children.Clear();
+        isDrawingBox = false;
+        activeDrawRect = null;
+        DrawOverlayCanvas.ReleaseMouseCapture();
+        StatusText.Text = "Cleared drawn boxes";
+    }
+
 
 
     private void MarkerDot_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -4677,11 +4822,207 @@ document.addEventListener('keydown', function(event) {{
     {
         if (sender is FrameworkElement element && element.Tag is TimeStudyEntry entry && HasVideo)
         {
-            TimeSpan timestamp = TimeSpan.Parse(entry.Timestamp);
-            CurrentPositionSeconds = timestamp.TotalSeconds;
-            UpdateTimeline();
-            StatusText.Text = $"Playing segment: {entry.ElementName ?? entry.Timestamp}";
+            JumpToEntry(entry);
             e.Handled = true;
+        }
+    }
+
+    private void JumpToEntry(TimeStudyEntry entry)
+    {
+        if (!HasVideo)
+            return;
+
+        TimeSpan timestamp = TimeSpan.Parse(entry.Timestamp);
+        CurrentPositionSeconds = timestamp.TotalSeconds;
+        UpdateTimeline();
+        StatusText.Text = $"Playing segment: {entry.ElementName ?? entry.Timestamp}";
+    }
+
+    private ContextMenu CreateEntryContextMenu(TimeStudyEntry entry)
+    {
+        var menu = new ContextMenu();
+        var deleteItem = new MenuItem { Header = "Delete Timestamp" };
+        deleteItem.Click += (s, e) => DeleteTimeStudyEntry(entry);
+        menu.Items.Add(deleteItem);
+        return menu;
+    }
+
+    private void DeleteTimeStudyEntry(TimeStudyEntry entry)
+    {
+        if (!timeStudyData.Contains(entry))
+            return;
+
+        timeStudyData.Remove(entry);
+        RecalculateDurations();
+        UpdateTimelineAndMarkers();
+        MarkAsModified();
+        StatusText.Text = "Timestamp deleted";
+    }
+
+    private void SegmentBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element || element.Tag is not TimeStudyEntry entry)
+            return;
+
+        if (!HasVideo)
+            return;
+
+        Canvas? canvas = FindVisualParent<Canvas>(element);
+        if (canvas == null)
+            return;
+
+        double effectivePixelsPerSecond = timelinePixelsPerSecond * timelineZoom;
+        Point clickPos = e.GetPosition(canvas);
+
+        // Build segment-local entry list
+        var segmentEntries = timeStudyData
+            .Where(e => e.Segment == entry.Segment)
+            .OrderBy(e => TimeSpan.Parse(e.Timestamp))
+            .ToList();
+
+        int index = segmentEntries.IndexOf(entry);
+        if (index < 0)
+            return;
+
+        draggedEntry = entry;
+        draggedPrevEntry = index > 0 ? segmentEntries[index - 1] : null;
+        draggedNextEntry = index < segmentEntries.Count - 1 ? segmentEntries[index + 1] : null;
+        draggedNextNextEntry = index < segmentEntries.Count - 2 ? segmentEntries[index + 2] : null;
+
+        segmentDragStartTime = TimeSpan.Parse(entry.Timestamp).TotalSeconds;
+        segmentDragEndTime = draggedNextEntry != null
+            ? TimeSpan.Parse(draggedNextEntry.Timestamp).TotalSeconds
+            : VideoDurationSeconds;
+
+        double startX = segmentDragStartTime * effectivePixelsPerSecond;
+        double endX = segmentDragEndTime * effectivePixelsPerSecond;
+
+        segmentDragStartMouseX = clickPos.X;
+        isSegmentDragActive = true;
+        segmentDragMoved = false;
+
+        // Determine drag mode based on edge proximity
+        if (draggedNextEntry != null && Math.Abs(clickPos.X - startX) <= SegmentDragEdgeThreshold)
+        {
+            segmentDragMode = SegmentDragMode.ResizeStart;
+        }
+        else if (draggedNextEntry != null && Math.Abs(endX - clickPos.X) <= SegmentDragEdgeThreshold)
+        {
+            segmentDragMode = SegmentDragMode.ResizeEnd;
+        }
+        else
+        {
+            segmentDragMode = draggedNextEntry != null ? SegmentDragMode.Move : SegmentDragMode.ResizeStart;
+        }
+
+        element.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void SegmentBar_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!isSegmentDragActive || draggedEntry == null)
+            return;
+
+        if (sender is not FrameworkElement element)
+            return;
+
+        Canvas? canvas = FindVisualParent<Canvas>(element);
+        if (canvas == null)
+            return;
+
+        double effectivePixelsPerSecond = timelinePixelsPerSecond * timelineZoom;
+        Point currentPos = e.GetPosition(canvas);
+        double timeAtMouse = currentPos.X / effectivePixelsPerSecond;
+
+        double prevTime = draggedPrevEntry != null ? TimeSpan.Parse(draggedPrevEntry.Timestamp).TotalSeconds : 0;
+        double nextNextTime = draggedNextNextEntry != null
+            ? TimeSpan.Parse(draggedNextNextEntry.Timestamp).TotalSeconds
+            : VideoDurationSeconds;
+
+        if (segmentDragMode == SegmentDragMode.Move && draggedNextEntry != null)
+        {
+            double duration = segmentDragEndTime - segmentDragStartTime;
+            double delta = (currentPos.X - segmentDragStartMouseX) / effectivePixelsPerSecond;
+            double newStart = segmentDragStartTime + delta;
+            double maxStart = Math.Max(prevTime + MinSegmentDurationSeconds, nextNextTime - duration - MinSegmentDurationSeconds);
+            double minStart = prevTime + MinSegmentDurationSeconds;
+            newStart = Math.Max(minStart, Math.Min(maxStart, newStart));
+            double newEnd = newStart + duration;
+
+            draggedEntry.Timestamp = TimeSpan.FromSeconds(newStart).ToString(@"hh\:mm\:ss");
+            draggedNextEntry.Timestamp = TimeSpan.FromSeconds(newEnd).ToString(@"hh\:mm\:ss");
+            segmentDragMoved = true;
+        }
+        else if (segmentDragMode == SegmentDragMode.ResizeStart)
+        {
+            double maxStart = segmentDragEndTime - MinSegmentDurationSeconds;
+            double newStart = Math.Max(prevTime + MinSegmentDurationSeconds, Math.Min(maxStart, timeAtMouse));
+            draggedEntry.Timestamp = TimeSpan.FromSeconds(newStart).ToString(@"hh\:mm\:ss");
+            segmentDragMoved = true;
+        }
+        else if (segmentDragMode == SegmentDragMode.ResizeEnd && draggedNextEntry != null)
+        {
+            double minEnd = segmentDragStartTime + MinSegmentDurationSeconds;
+            double maxEnd = Math.Max(minEnd, nextNextTime - MinSegmentDurationSeconds);
+            double newEnd = Math.Max(minEnd, Math.Min(maxEnd, timeAtMouse));
+            draggedNextEntry.Timestamp = TimeSpan.FromSeconds(newEnd).ToString(@"hh\:mm\:ss");
+            segmentDragMoved = true;
+        }
+
+        if ((DateTime.Now - lastSegmentDragUpdate).TotalMilliseconds > 50)
+        {
+            UpdateTimeline();
+            lastSegmentDragUpdate = DateTime.Now;
+        }
+
+        e.Handled = true;
+    }
+
+    private void SegmentBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!isSegmentDragActive)
+            return;
+
+        if (sender is FrameworkElement element)
+        {
+            element.ReleaseMouseCapture();
+        }
+
+        isSegmentDragActive = false;
+        segmentDragMode = SegmentDragMode.None;
+
+        SortTimeStudyDataByTimestamp();
+        RecalculateDurations();
+        UpdateTimelineAndMarkers();
+        MarkAsModified();
+
+        if (!segmentDragMoved && draggedEntry != null)
+        {
+            JumpToEntry(draggedEntry);
+        }
+
+        draggedEntry = null;
+        draggedNextEntry = null;
+        draggedPrevEntry = null;
+        draggedNextNextEntry = null;
+
+        e.Handled = true;
+    }
+
+    private void SortTimeStudyDataByTimestamp()
+    {
+        var selected = TimeStudyGrid.SelectedItem as TimeStudyEntry;
+        var ordered = timeStudyData.OrderBy(e => TimeSpan.Parse(e.Timestamp)).ToList();
+        timeStudyData.Clear();
+        foreach (var entry in ordered)
+        {
+            timeStudyData.Add(entry);
+        }
+
+        if (selected != null)
+        {
+            TimeStudyGrid.SelectedItem = selected;
         }
     }
 
@@ -4789,6 +5130,9 @@ document.addEventListener('keydown', function(event) {{
             UpdateStatistics();
         }
         
+        TimeFormatIndicator.Text = useDecimalTimeFormat 
+            ? "Time format: Decimal hours" 
+            : "Time format: HH:MM:SS";
         StatusText.Text = useDecimalTimeFormat 
             ? "Time format: Decimal hours" 
             : "Time format: HH:MM:SS";
